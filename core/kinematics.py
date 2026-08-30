@@ -120,10 +120,13 @@ class PlanetarySynthesisEngine:
         z_sun_min: int = 12,
         z_sun_max: int = 40,
         z_ring_max: int = 140,
-        tolerance: float = 0.08
+        tolerance: float = 0.08,
+        bearing_outer_dia_mm: float = 0.0,
+        motor_shaft_dia_mm: float = 0.0
     ) -> List[StageKinematics]:
         """
-        Finds candidate tooth sets for a single planetary stage.
+        Finds candidate tooth sets prioritizing robust planet-to-bearing (>=1.8x)
+        and safe sun-to-shaft ratios (<=65%).
         """
         candidates = []
         
@@ -147,10 +150,28 @@ class PlanetarySynthesisEngine:
                 ratio_error = abs(actual_ratio - target_ratio) / target_ratio
                 
                 if ratio_error <= tolerance:
-                    candidates.append((ratio_error, stage))
+                    # Mechanical structural penalty
+                    score = ratio_error * 1000.0
+                    
+                    # 1. Planet Gear vs Bearing Diameter (User Rule: D_planet >= 1.8 - 2.0x D_bearing)
+                    if bearing_outer_dia_mm > 0:
+                        d_planet_mm = module * zp
+                        if d_planet_mm < (bearing_outer_dia_mm * 1.6):
+                            score += 500.0  # heavy penalty if planet is too small for bearing
+                        elif d_planet_mm < (bearing_outer_dia_mm * 1.9):
+                            score += 100.0
+                            
+                    # 2. Sun Gear Root vs Motor Shaft (User Rule: Shaft <= 65% of Sun Root)
+                    if motor_shaft_dia_mm > 0:
+                        d_root_sun_mm = module * (zs - 2.5)
+                        if motor_shaft_dia_mm > (d_root_sun_mm * 0.70):
+                            score += 300.0
+                            
+                    score += zr * 0.1  # secondary preference for compact ring
+                    candidates.append((score, stage))
         
-        # Sort candidates by minimum ratio error, then smallest ring diameter
-        candidates.sort(key=lambda item: (item[0], item[1].z_ring))
+        # Sort candidates by optimal score
+        candidates.sort(key=lambda item: item[0])
         return [c[1] for c in candidates]
 
     @staticmethod

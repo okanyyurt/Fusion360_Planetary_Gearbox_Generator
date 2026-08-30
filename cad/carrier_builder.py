@@ -40,6 +40,9 @@ class CarrierBuilder:
         output_shaft_dia_mm: float = 8.0,
         output_shaft_length_mm: float = 20.0,
         is_final_output_stage: bool = True,
+        circlip_d2_mm: Optional[float] = None,
+        circlip_width_mm: float = 0.9,
+        enable_circlip: bool = True,
         name: str = "Planet_Carrier"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
@@ -114,10 +117,10 @@ class CarrierBuilder:
                 arm_input.participantBodies = [carrier_body]
                 extrudes.add(arm_input)
 
-        # 3. Planet Axle Pins, Spacer Steps & DIN 471 External Circlip Grooves
-        groove_d2_mm = max(1.0, pin_dia_mm - 0.4)  # d2 groove diameter as per DIN 471
+        # 3. Planet Axle Pins, Spacer Steps & DIN 471 / DIN 6799 Circlip Grooves
+        groove_d2_mm = circlip_d2_mm if circlip_d2_mm else max(1.0, pin_dia_mm - 0.4)
         groove_d2_r_cm = (groove_d2_mm / 2.0) * 0.1
-        groove_w_cm = 0.09  # 0.9mm groove width (m)
+        groove_w_cm = circlip_width_mm * 0.1
 
         for i in range(num_planets):
             angle = (2.0 * math.pi * i) / num_planets
@@ -151,35 +154,35 @@ class CarrierBuilder:
             except Exception:
                 pass
 
-            # C. DIN 471 Precision External Circlip Groove (Direct Cut into the pin)
-            try:
-                groove_z_mm = z_base_mm - 0.5  # 0.5mm below planet gear bottom
-                groove_plane = cls.get_z_plane(target_component, groove_z_mm * 0.1)
-                groove_sketch = sketches.add(groove_plane)
-                groove_sketch.name = f"{name}_DIN471_Groove_Sketch_{i + 1}"
-                
-                # Outer clearing circle and inner d2 groove circle
-                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.15
-                )
-                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(px, py, 0), groove_d2_r_cm
-                )
+            # C. DIN 471 / DIN 6799 Precision External Circlip Groove
+            if enable_circlip:
+                try:
+                    groove_z_mm = z_base_mm - 0.5  # 0.5mm below planet gear bottom
+                    groove_plane = cls.get_z_plane(target_component, groove_z_mm * 0.1)
+                    groove_sketch = sketches.add(groove_plane)
+                    groove_sketch.name = f"{name}_Circlip_Groove_Sketch_{i + 1}"
+                    
+                    groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                        adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.15
+                    )
+                    groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                        adsk.core.Point3D.create(px, py, 0), groove_d2_r_cm
+                    )
 
-                donut_prof = None
-                for p in groove_sketch.profiles:
-                    if p.profileLoops.count == 2:
-                        donut_prof = p
-                        break
-                if not donut_prof:
-                    donut_prof = groove_sketch.profiles.item(0)
+                    donut_prof = None
+                    for p in groove_sketch.profiles:
+                        if p.profileLoops.count == 2:
+                            donut_prof = p
+                            break
+                    if not donut_prof:
+                        donut_prof = groove_sketch.profiles.item(0)
 
-                g_input = extrudes.createInput(donut_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-groove_w_cm))
-                g_input.participantBodies = [carrier_body]
-                extrudes.add(g_input)
-            except Exception:
-                pass
+                    g_input = extrudes.createInput(donut_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                    g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-groove_w_cm))
+                    g_input.participantBodies = [carrier_body]
+                    extrudes.add(g_input)
+                except Exception:
+                    pass
 
         # 4. Shaft Generation: Main Output Shaft vs Inter-Stage Driver Shaft
         top_plane = cls.get_z_plane(target_component, z_spider_plane_cm + plate_thick_cm)

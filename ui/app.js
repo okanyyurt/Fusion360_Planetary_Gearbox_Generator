@@ -297,7 +297,7 @@ function initRadioCards() {
 
 /* Real-time JavaScript Kinematics Synthesizer */
 function initKinematicsLiveCalculation() {
-  const inputs = ['target_ratio', 'stages_count', 'module', 'num_planets'];
+  const inputs = ['target_ratio', 'stages_count', 'module', 'num_planets', 'bearing_type', 'circlip_type', 'motor_shaft_dia'];
   inputs.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -363,12 +363,60 @@ function updateMetricsDisplay() {
   document.getElementById('metric_ratio').innerText = `${cand.total_ratio} : 1`;
   document.getElementById('metric_zs').innerText = firstStage.z_sun;
   document.getElementById('metric_zp').innerText = firstStage.z_planet;
-  document.getElementById('metric_zr').innerText = cand.z_ring || firstStage.z_ring;
-
   const dRingPitch = moduleVal * (cand.z_ring || firstStage.z_ring);
   const outerHousingDia = dRingPitch + (moduleVal * 6.0) + 10.0;
   document.getElementById('metric_od').innerText = `~${outerHousingDia.toFixed(1)} mm`;
   document.getElementById('metric_contact').innerText = '> 2.2 (Balıksırtı)';
+
+  // Real-Time Dişli / Rulman & Şaft / Güneş Safety Ratios
+  const bearingCode = document.getElementById('bearing_type').value;
+  const bearingInfo = BEARING_CATALOG[bearingCode] || { d_outer: 16.0, d_inner: 8.0 };
+  const dPlanet = moduleVal * firstStage.z_planet;
+  const ratioPB = (dPlanet / bearingInfo.d_outer).toFixed(2);
+  const elPB = document.getElementById('ratio_planet_bearing');
+  if (elPB) {
+    if (ratioPB >= 1.8) {
+      elPB.innerText = `${ratioPB}x (Mükemmel Dayanım)`;
+      elPB.style.color = '#38bdf8';
+    } else if (ratioPB >= 1.5) {
+      elPB.innerText = `${ratioPB}x (Yeterli)`;
+      elPB.style.color = '#f59e0b';
+    } else {
+      elPB.innerText = `${ratioPB}x (Zayıf - Rulmanı Küçültün)`;
+      elPB.style.color = '#ef4444';
+    }
+  }
+
+  const motorShaftDia = parseFloat(document.getElementById('motor_shaft_dia').value) || 5.0;
+  const dRootSun = Math.max(1.0, moduleVal * (firstStage.z_sun - 2.5));
+  const ratioSS = Math.round((motorShaftDia / dRootSun) * 100);
+  const elSS = document.getElementById('ratio_shaft_sun');
+  if (elSS) {
+    if (ratioSS <= 65) {
+      elSS.innerText = `%${ratioSS} (Güvenli Standart)`;
+      elSS.style.color = '#38bdf8';
+    } else if (ratioSS <= 85) {
+      elSS.innerText = `%${ratioSS} (Kritik - Alt Kovan Gerekir)`;
+      elSS.style.color = '#f59e0b';
+    } else {
+      elSS.innerText = `%${ratioSS} (Güneş Dişliden Büyük Şaft!)`;
+      elSS.style.color = '#ef4444';
+    }
+  }
+
+  // Update Circlip Badge
+  const circlipType = document.getElementById('circlip_type').value;
+  const pinDia = bearingInfo.d_inner;
+  const badge = document.getElementById('circlip_specs_badge');
+  if (badge) {
+    if (circlipType === 'DIN_471') {
+      badge.innerText = `DIN 471-${pinDia} (d2:${(pinDia - 0.4).toFixed(1)}mm, m:0.9mm)`;
+    } else if (circlipType === 'DIN_6799') {
+      badge.innerText = `DIN 6799-${pinDia} (E-Clip)`;
+    } else {
+      badge.innerText = `Segmansız`;
+    }
+  }
 }
 
 // Client-side synthesis algorithm
@@ -486,6 +534,7 @@ function initActionButtons() {
       motor_shaft_dia: parseFloat(document.getElementById('motor_shaft_dia').value) || 5.0,
       motor_shaft_type: document.getElementById('motor_shaft_type').value,
       bearing_type: document.getElementById('bearing_type').value,
+      circlip_type: document.getElementById('circlip_type').value,
       pin_dia: parseFloat(document.getElementById('pin_dia').value) || 5.0,
       generate_housing: document.getElementById('generate_housing').checked,
       output_shaft_dia: parseFloat(document.getElementById('output_shaft_dia').value) || 8.0,

@@ -12,7 +12,7 @@ window.TRANSLATIONS = {
     // Tab Labels
     tabMotor: "Motor & Oran",
     tabGearType: "Dişli & Balıksırtı",
-    tabBearings: "Rulman & Mil",
+    tabBearings: "Rulman, Mil & Segman",
     tabHousing: "Taşıyıcı & Gövde",
     tabTolerances: "3D Baskı / Tolerans",
 
@@ -122,7 +122,7 @@ window.TRANSLATIONS = {
     // Tab Labels
     tabMotor: "Motor & Ratio",
     tabGearType: "Gear & Herringbone",
-    tabBearings: "Bearings & Shaft",
+    tabBearings: "Bearings, Pin & Circlip",
     tabHousing: "Carrier & Housing",
     tabTolerances: "3D Print / Tolerance",
 

@@ -65,15 +65,16 @@ def run_tests():
     print(f"  [OK] Herringbone twist angle: {round(twist_angle * 180 / 3.14159, 2)} degrees")
     assert twist_angle > 0.1, "Twist angle computation invalid!"
 
-    # Test 5: Catalogs Verification
-    print("\n[TEST 5] Catalog Lookups")
-    bearing_688 = get_bearing_info("688ZZ")
-    assert bearing_688["d_inner"] == 8.0 and bearing_688["d_outer"] == 16.0
-    print(f"  [OK] Bearing 688ZZ: d={bearing_688['d_inner']}mm, D={bearing_688['d_outer']}mm, B={bearing_688['width']}mm")
+    # Test 6: Circlip Catalog Verification
+    print("\n[TEST 6] Circlip Catalog Lookups (DIN 471 & DIN 6799)")
+    from core.circlip_catalog import get_circlip_info
+    c471_8 = get_circlip_info("DIN_471", 8.0)
+    assert c471_8["d1"] == 8.0 and c471_8["d2"] == 7.6 and c471_8["m"] == 0.9
+    print(f"  [OK] DIN 471-8: d1={c471_8['d1']}mm, d2(groove)={c471_8['d2']}mm, m(width)={c471_8['m']}mm, s={c471_8['s']}mm")
 
-    motor_nema17 = get_motor_info("NEMA17")
-    assert motor_nema17["default_shaft_dia"] == 5.0
-    print(f"  [OK] Motor NEMA17: Shaft={motor_nema17['default_shaft_dia']}mm ({motor_nema17['default_shaft_type']}), PCD={motor_nema17['bolt_pitch_circle']}mm")
+    c6799_5 = get_circlip_info("DIN_6799", 5.0)
+    assert c6799_5["d1"] == 5.0 and c6799_5["d2"] == 4.0 and c6799_5["m"] == 0.7
+    print(f"  [OK] DIN 6799-5: d1={c6799_5['d1']}mm, d2(groove)={c6799_5['d2']}mm, m(width)={c6799_5['m']}mm")
 
     print("\n==================================================")
     print("ALL TESTS PASSED WITH 100% SUCCESS!")

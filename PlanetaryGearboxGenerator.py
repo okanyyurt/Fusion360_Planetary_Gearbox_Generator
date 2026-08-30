@@ -59,6 +59,8 @@ class PaletteHTMLEventHandler(HTMLEventHandler):
                     import core.tooth_profile
                     import core.kinematics
                     import core.bearing_catalog
+                    import core.motor_catalog
+                    import core.circlip_catalog
                     import cad.housing_builder
                     import cad.gear_builder
                     import cad.carrier_builder
@@ -68,6 +70,7 @@ class PaletteHTMLEventHandler(HTMLEventHandler):
                     importlib.reload(core.kinematics)
                     importlib.reload(core.bearing_catalog)
                     importlib.reload(core.motor_catalog)
+                    importlib.reload(core.circlip_catalog)
                     importlib.reload(cad.housing_builder)
                     importlib.reload(cad.gear_builder)
                     importlib.reload(cad.carrier_builder)

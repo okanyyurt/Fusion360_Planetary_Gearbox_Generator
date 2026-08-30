@@ -224,17 +224,17 @@
         </div>
       </section>
 
-      <!-- TAB 3: RULMAN & MIL -->
+      <!-- TAB 3: RULMAN, MIL & SEGMAN -->
       <section id="tab-bearings" class="tab-pane">
         <div class="section-title">
-          <h3>Planet Dişli Yataklama ve Rulman Seçimi</h3>
+          <h3>Planet Dişli Yataklama, Rulman ve Eksenel Segman Seçimi</h3>
         </div>
 
         <div class="form-grid">
           <!-- Bearing Mode -->
-          <div class="form-group full-width">
+          <div class="form-group">
             <div class="label-row">
-              <label for="bearing_type">Planet Yataklama Tipi</label>
+              <label for="bearing_type">Planet Rulman Tipi</label>
               <button class="help-btn" data-modal="modal-bearing" title="Rulman ve Pim Montajı">?</button>
             </div>
             <select id="bearing_type">
@@ -250,14 +250,41 @@
             </select>
           </div>
 
+          <!-- Circlip / Segman Selection -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="circlip_type">Eksenel Segman Tipi (Circlip)</label>
+              <span class="badge badge-info" id="circlip_specs_badge">DIN 471-8</span>
+            </div>
+            <select id="circlip_type">
+              <option value="DIN_471" selected>DIN 471 Standart Dış Segman (Önerilen)</option>
+              <option value="DIN_6799">DIN 6799 E-Segman (E-Clip)</option>
+              <option value="NONE">Segmansız / Pres Geçme</option>
+            </select>
+          </div>
+
           <!-- Plain Pin Dia (if CUSTOM_PIN) -->
-          <div class="form-group" id="group_pin_dia">
+          <div class="form-group" id="group_pin_dia" style="display: none;">
             <div class="label-row">
               <label for="pin_dia">Pim / Mil Çapı (d_pin)</label>
             </div>
             <div class="input-with-unit">
-              <input type="number" id="pin_dia" value="5.0" min="1.5" max="20.0" step="0.5">
+              <input type="number" id="pin_dia" value="8.0" min="1.5" max="20.0" step="0.5">
               <span class="unit">mm</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Structural Safety Ratios -->
+          <div class="form-group full-width">
+            <div class="stats-grid-mini" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+              <div class="stat-card-mini" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px;">
+                <div style="font-size: 11px; color: var(--text-muted);">Dişli / Rulman Çap Oranı (Hedef: ≥1.8x)</div>
+                <div id="ratio_planet_bearing" style="font-size: 13px; font-weight: bold; color: var(--accent-cyan); margin-top: 4px;">2.25x (Mükemmel Dayanım)</div>
+              </div>
+              <div class="stat-card-mini" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px;">
+                <div style="font-size: 11px; color: var(--text-muted);">Motor Şaft / Güneş Kök Oranı (Hedef: ≤65%)</div>
+                <div id="ratio_shaft_sun" style="font-size: 13px; font-weight: bold; color: var(--accent-cyan); margin-top: 4px;">%52 (Güvenli Standart)</div>
+              </div>
             </div>
           </div>
         </div>

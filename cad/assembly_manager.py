@@ -14,6 +14,7 @@ except ImportError:
 
 from core.bearing_catalog import get_bearing_info
 from core.motor_catalog import get_motor_info
+from core.circlip_catalog import get_circlip_info
 from cad.gear_builder import GearBuilder
 from cad.carrier_builder import CarrierBuilder
 from cad.housing_builder import HousingBuilder
@@ -44,7 +45,6 @@ class PlanetaryAssemblyManager:
         """Sends a progress update to the HTML UI palette."""
         if palette is None:
             return
-        import json
         data = {'event': 'progress', 'message': message}
         if percent is not None:
             data['percent'] = percent
@@ -55,7 +55,7 @@ class PlanetaryAssemblyManager:
             pass
 
     @classmethod
-    def generate_gearbox(cls, config: Dict) -> bool:
+    def generate_gearbox(cls, config: Dict[str, Any]) -> bool:
         """
         Main execution entry point: Generates the full 3D gearbox inside active Fusion 360 document.
         """
@@ -86,12 +86,15 @@ class PlanetaryAssemblyManager:
         motor_shaft_dia = float(config.get("motor_shaft_dia", 5.0))
         motor_shaft_type = str(config.get("motor_shaft_type", "D_CUT"))
         bearing_code = str(config.get("bearing_type", "688ZZ"))
-        pin_dia = float(config.get("pin_dia", 4.0))
         output_shaft_dia = float(config.get("output_shaft_dia", 8.0))
         output_shaft_len = float(config.get("output_shaft_len", 20.0))
         backlash = float(config.get("backlash", 0.05))
+        circlip_type = str(config.get("circlip_type", "DIN_471"))
 
         bearing_info = get_bearing_info(bearing_code)
+        # Carrier pin diameter is directly matched to the chosen bearing's inner bore
+        pin_dia = float(bearing_info.get("d_inner", 8.0))
+        circlip_info = get_circlip_info(circlip_type, pin_dia)
 
         # 1. Setup Master Gearbox Sub-Component
         cls._send_progress(palette, "⚙️ 1/5: Redüktör montaj ağacı kuruluyor...", 10)
@@ -246,6 +249,9 @@ class PlanetaryAssemblyManager:
                 output_shaft_dia_mm=output_shaft_dia if is_final_stage else 6.0,
                 output_shaft_length_mm=output_shaft_len if is_final_stage else 6.0,
                 is_final_output_stage=is_final_stage,
+                circlip_d2_mm=circlip_info["d2"],
+                circlip_width_mm=circlip_info["m"],
+                enable_circlip=(circlip_type != "NONE"),
                 name=f"Carrier_Stg{stage_idx + 1}"
             )
             if carrier_body:
