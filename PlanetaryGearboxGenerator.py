@@ -53,6 +53,29 @@ class PaletteHTMLEventHandler(HTMLEventHandler):
             if action == 'generateGearbox':
                 payload = json.loads(data_str)
                 
+                # Auto reload all modules to ensure latest code is executed without stale cache
+                try:
+                    import importlib
+                    import core.tooth_profile
+                    import core.kinematics
+                    import core.bearing_catalog
+                    import core.motor_catalog
+                    import cad.gear_builder
+                    import cad.carrier_builder
+                    import cad.housing_builder
+                    import cad.assembly_manager
+
+                    importlib.reload(core.tooth_profile)
+                    importlib.reload(core.kinematics)
+                    importlib.reload(core.bearing_catalog)
+                    importlib.reload(core.motor_catalog)
+                    importlib.reload(cad.gear_builder)
+                    importlib.reload(cad.carrier_builder)
+                    importlib.reload(cad.housing_builder)
+                    importlib.reload(cad.assembly_manager)
+                except Exception:
+                    pass
+
                 # Check active design
                 product = app.activeProduct
                 design = adsk.fusion.Design.cast(product)
@@ -61,6 +84,7 @@ class PaletteHTMLEventHandler(HTMLEventHandler):
                     return
                 
                 # Run CAD Generation
+                from cad.assembly_manager import PlanetaryAssemblyManager
                 success = PlanetaryAssemblyManager.generate_gearbox(payload)
                 if success:
                     ui.messageBox(
