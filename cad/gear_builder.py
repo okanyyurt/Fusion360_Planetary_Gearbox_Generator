@@ -37,6 +37,7 @@ class GearBuilder:
             if palette:
                 import json
                 palette.sendInfoToHTML('progress', json.dumps({'message': message}))
+                adsk.doEvents()
         except Exception:
             pass
 

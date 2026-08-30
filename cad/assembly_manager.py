@@ -50,6 +50,7 @@ class PlanetaryAssemblyManager:
             data['percent'] = percent
         try:
             palette.sendInfoToHTML('fusionMessageReceived', json.dumps(data))
+            adsk.doEvents()
         except Exception:
             pass
 

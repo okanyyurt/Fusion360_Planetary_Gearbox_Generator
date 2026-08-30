@@ -496,14 +496,21 @@ function initActionButtons() {
     };
 
     console.log('Sending Payload to Fusion 360:', payload);
+    
+    // Show UI immediately
+    showProgress(currentLang === 'tr' ? 'Fusion 360 3D Modelleme Başlıyor...' : 'Starting Fusion 360 3D Modeling...', 0);
 
-    // Call Fusion 360 API bridge
-    if (typeof adsk !== 'undefined' && adsk.fusionSendData) {
-      adsk.fusionSendData('generateGearbox', JSON.stringify(payload));
-    } else {
-      // In browser preview / debug mode
-      alert(`[FUSION 360 SIMULATION]\n3D Modelleme Başlatıldı!\nToplam Oran: ${payload.total_ratio}:1\nKademe: ${payload.stages.length}\nDiş Tipi: ${payload.is_herringbone ? 'Balıksırtı' : 'Düz'}\nŞaft: Ø${payload.motor_shaft_dia}mm (${payload.motor_shaft_type})`);
-    }
+    // Defer the heavy API call to allow the browser to paint the progress overlay
+    setTimeout(() => {
+      // Call Fusion 360 API bridge
+      if (typeof adsk !== 'undefined' && adsk.fusionSendData) {
+        adsk.fusionSendData('generateGearbox', JSON.stringify(payload));
+      } else {
+        // In browser preview / debug mode
+        alert(`[FUSION 360 SIMULATION]\n3D Modelleme Başlatıldı!\nToplam Oran: ${payload.total_ratio}:1\nKademe: ${payload.stages.length}\nDiş Tipi: ${payload.is_herringbone ? 'Balıksırtı' : 'Düz'}\nŞaft: Ø${payload.motor_shaft_dia}mm (${payload.motor_shaft_type})`);
+        setTimeout(() => hideProgress(), 2000);
+      }
+    }, 100);
   });
 }
 

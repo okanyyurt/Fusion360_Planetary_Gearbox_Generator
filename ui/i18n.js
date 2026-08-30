@@ -2,7 +2,7 @@
  * Internationalization (i18n) - Turkish & English Language Support
  * Planetary Gearbox Generator UI
  */
-const TRANSLATIONS = {
+window.TRANSLATIONS = {
   tr: {
     // App Header
     appSubtitle: "Parametrik Planet Dişli & Balıksırtı CAD Motoru",
