@@ -225,6 +225,10 @@ class PlanetaryAssemblyManager:
                 )
                 if planet_body:
                     cls.apply_appearance(planet_body, "Steel")
+                # Move Planet occurrence to its pitch circle position (px, py)
+                p_trans = planet_occ.transform
+                p_trans.translation = adsk.core.Vector3D.create(px_cm, py_cm, 0.0)
+                planet_occ.transform = p_trans
                 
             # C. Build Spider Planet Carrier Component
             carrier_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
@@ -246,13 +250,16 @@ class PlanetaryAssemblyManager:
             if carrier_body:
                 cls.apply_appearance(carrier_body, "Aluminum")
             
+            # Position stage along Z axis
+            s_trans = stage_occ.transform
+            s_trans.translation = adsk.core.Vector3D.create(0.0, 0.0, z_current_offset * 0.1)
+            stage_occ.transform = s_trans
+            
             z_current_offset += face_width + 5.0
 
         # 5. Build Top Output Bearing Cover Cap (Component at Z = total_gearbox_length)
         cls._send_progress(palette, "🎯 5/5: Üst rulman kapağı ekleniyor...", 95)
-        top_mat = adsk.core.Matrix3D.create()
-        top_mat.setCell(2, 3, total_gearbox_length * 0.1)
-        cover_occ = master_comp.occurrences.addNewComponent(top_mat)
+        cover_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
         cover_comp = cover_occ.component
         cover_comp.name = "Top_Bearing_Cover"
 
@@ -267,6 +274,11 @@ class PlanetaryAssemblyManager:
         )
         if cover_body:
             cls.apply_appearance(cover_body, "Aluminum")
+
+        # Move Top Cover to top of gearbox housing
+        c_trans = cover_occ.transform
+        c_trans.translation = adsk.core.Vector3D.create(0.0, 0.0, total_gearbox_length * 0.1)
+        cover_occ.transform = c_trans
 
         cls._send_progress(palette, "✅ Redüktör Başarıyla Oluşturuldu!", 100)
         return True
