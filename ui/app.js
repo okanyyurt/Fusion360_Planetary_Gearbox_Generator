@@ -517,15 +517,23 @@ function initActionButtons() {
 /* ─── Progress Overlay ─────────────────────────────────────────────────────── */
 function showProgress(message, percent) {
   const overlay = document.getElementById('progress_overlay');
-  const msgEl = document.getElementById('progress_msg');
+  const statusEl = document.getElementById('progress_status');
+  const pctEl = document.getElementById('progress_pct');
   const fillEl = document.getElementById('progress_fill');
   if (!overlay) return;
   overlay.style.display = 'flex';
-  if (message && msgEl) msgEl.textContent = message;
-  if (percent != null && fillEl) fillEl.style.width = Math.min(100, percent) + '%';
-  // Animate fill if no explicit percent given
-  if (percent == null && fillEl) {
-    fillEl.style.animation = 'progress-indeterminate 1.5s ease-in-out infinite';
+  if (message && statusEl) statusEl.textContent = message;
+  
+  if (percent != null) {
+    const clamped = Math.min(100, Math.max(0, Math.round(percent)));
+    if (fillEl) {
+      fillEl.style.animation = 'none';
+      fillEl.style.width = clamped + '%';
+    }
+    if (pctEl) pctEl.textContent = clamped + '%';
+  } else {
+    if (fillEl) fillEl.style.animation = 'progress-indeterminate 1.5s ease-in-out infinite';
+    if (pctEl) pctEl.textContent = '...';
   }
 }
 
@@ -534,4 +542,6 @@ function hideProgress() {
   if (overlay) overlay.style.display = 'none';
   const fillEl = document.getElementById('progress_fill');
   if (fillEl) { fillEl.style.animation = 'none'; fillEl.style.width = '100%'; }
+  const pctEl = document.getElementById('progress_pct');
+  if (pctEl) pctEl.textContent = '100%';
 }

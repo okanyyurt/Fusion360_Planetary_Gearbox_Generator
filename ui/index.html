@@ -417,8 +417,10 @@
   <div class="progress-overlay" id="progress_overlay" style="display:none;">
     <div class="progress-card">
       <div class="progress-spinner">⚙️</div>
-      <p class="progress-msg" id="progress_msg" data-i18n="progressGenerating">Dişliler oluşturuluyor, lütfen bekleyin...</p>
-      <p class="progress-warn" data-i18n="progressWarning">⚠️ Bu işlem Fusion 360 modeline göre 15-60 saniye sürebilir.</p>
+      <div class="progress-pct-row">
+        <span class="progress-status-label" id="progress_status">Hazırlanıyor...</span>
+        <span class="progress-pct" id="progress_pct">0%</span>
+      </div>
       <div class="progress-bar"><div class="progress-fill" id="progress_fill"></div></div>
     </div>
   </div>

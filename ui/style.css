@@ -617,20 +617,32 @@ select:focus {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 8px;
+.progress-pct-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 13px;
 }
 
-.progress-warn {
-  font-size: 11px;
-  color: var(--accent-gold);
-  margin: 0 0 20px;
+.progress-status-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.progress-pct {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
 }
 
 .progress-bar {
-  height: 6px;
+  height: 8px;
   background: var(--bg-input);
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .progress-fill {

@@ -1,12 +1,11 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
-Constructs Sun Gear, Planet Gears, and Internal Ring Gear using native Autodesk
-Fusion 360 parametric features: Base Cylinder Extrude + Involute Tooth Extrude + Circular Pattern.
+Constructs Sun Gear, Planet Gears, and Internal Ring Gear Enclosure using native
+Fusion 360 parametric sketches, splines, and extrusions.
 """
 import math
 from typing import List, Tuple, Optional
 
-# Fusion 360 API imports (available when running inside Fusion 360)
 try:
     import adsk.core
     import adsk.fusion
@@ -17,7 +16,7 @@ from core.tooth_profile import ToothProfileGenerator, Point2D
 
 class GearBuilder:
     """
-    Builds native 3D gear components in Autodesk Fusion 360 following official CAD standards.
+    Builds native 3D gear components in Autodesk Fusion 360.
     """
 
     @staticmethod
@@ -29,10 +28,26 @@ class GearBuilder:
             palette = ui.palettes.itemById('PlanetaryGearboxPalette_v1')
             if palette:
                 import json
-                palette.sendInfoToHTML('progress', json.dumps({'message': message}))
+                palette.sendInfoToHTML('fusionMessageReceived', json.dumps({'event': 'progress', 'message': message}))
                 adsk.doEvents()
         except Exception:
             pass
+
+    @staticmethod
+    def draw_closed_spline_from_points(sketch: 'adsk.fusion.Sketch', points_mm: List[Point2D]) -> None:
+        """
+        Draws a smooth closed fitted spline from 2D points in mm.
+        Converts coordinates to Fusion 360 internal centimeters (cm).
+        """
+        if len(points_mm) < 3:
+            return
+        
+        pts_obj = adsk.core.ObjectCollection.create()
+        for p in points_mm:
+            pts_obj.add(adsk.core.Point3D.create(p[0] * 0.1, p[1] * 0.1, 0.0))
+            
+        spline = sketch.sketchCurves.sketchFittedSplines.add(pts_obj)
+        spline.isClosed = True
 
     @staticmethod
     def add_shaft_bore(
@@ -46,7 +61,6 @@ class GearBuilder:
     ) -> None:
         """
         Adds center shaft cutout profile (Round, D-Cut, Double D-Cut, or Keyway) on sketch.
-        All coordinates converted to Centimeters (cm).
         """
         r_cm = (shaft_dia_mm / 2.0 + tolerance_offset_mm) * 0.1
         lines = sketch.sketchCurves.sketchLines
@@ -120,135 +134,101 @@ class GearBuilder:
         d_flat_depth_mm: float = 0.5,
         pressure_angle_deg: float = 20.0,
         backlash_mm: float = 0.05,
+        is_sun_gear: bool = False,
         name: str = "Gear"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds native Autodesk-standard spur gear body using Base Cylinder + Single Involute Tooth + Circular Pattern.
+        Builds complete precision external gear body (Sun or Planet).
         """
-        app = adsk.core.Application.get()
         features = target_component.features
         sketches = target_component.sketches
         xy_plane = target_component.xYConstructionPlane
         face_width_cm = face_width_mm * 0.1
 
-        # 1. Compute Exact Involute Tooth Geometry
-        geom = ToothProfileGenerator.get_external_tooth_geometry(
+        # 1. Generate 2D Profile Points
+        points_mm = ToothProfileGenerator.generate_external_gear_polygon(
             z=z_teeth,
             module=module,
             pressure_angle_deg=pressure_angle_deg,
             backlash_mm=backlash_mm
         )
 
-        root_r_cm = geom['root_r_cm']
-        base_r_cm = geom['base_r_cm']
-        outside_r_cm = geom['outside_r_cm']
-        spline1_pts = geom['spline1_pts']
-        spline2_pts = geom['spline2_pts']
+        # 2. Create Sketch
+        gear_sketch = sketches.add(xy_plane)
+        gear_sketch.name = f"{name}_Sketch"
+        gear_sketch.isComputeDeferred = True
 
-        # 2. Base Cylinder Sketch (Root Circle + Center Shaft Bore)
-        base_sketch = sketches.add(xy_plane)
-        base_sketch.name = f"{name}_Base_Sketch"
-        base_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-            adsk.core.Point3D.create(0, 0, 0), root_r_cm
-        )
+        # Draw outer tooth profile
+        cls.draw_closed_spline_from_points(gear_sketch, points_mm)
 
-        if bore_dia_mm > 0.0:
+        # Draw center bore (prevent bore larger than root circle)
+        pitch_r = module * z_teeth / 2.0
+        root_r = pitch_r - 1.25 * module
+        safe_bore_dia = min(bore_dia_mm, (root_r * 2.0) - 2.0)
+        
+        if safe_bore_dia > 1.0:
             cls.add_shaft_bore(
-                sketch=base_sketch,
-                shaft_dia_mm=bore_dia_mm,
+                sketch=gear_sketch,
+                shaft_dia_mm=safe_bore_dia,
                 shaft_type=bore_type,
                 d_flat_depth_mm=d_flat_depth_mm
             )
 
-        # Select the base cylinder profile (donut with center hole if bore exists)
+        gear_sketch.isComputeDeferred = False
+
+        # Find gear profile (donut with center hole)
         prof = None
-        if bore_dia_mm > 0.0:
-            for p in base_sketch.profiles:
+        for p in gear_sketch.profiles:
+            if safe_bore_dia > 1.0:
                 if p.profileLoops.count == 2:
                     prof = p
                     break
+            else:
+                prof = p
+                break
         if not prof:
-            prof = base_sketch.profiles.item(0)
+            prof = gear_sketch.profiles.item(0)
 
-        # Extrude Base Cylinder
+        # Extrude Gear Body
         extrudes = features.extrudeFeatures
         ext_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
         dist = adsk.core.ValueInput.createByReal(face_width_cm)
         ext_input.setDistanceExtent(False, dist)
-        base_extrude = extrudes.add(ext_input)
-        base_body = base_extrude.bodies.item(0)
-        base_body.name = name
+        gear_extrude = extrudes.add(ext_input)
+        gear_body = gear_extrude.bodies.item(0)
+        gear_body.name = name
 
-        # 3. Single Tooth Profile Sketch
-        tooth_sketch = sketches.add(xy_plane)
-        tooth_sketch.name = f"{name}_Tooth_Sketch"
-        tooth_sketch.isComputeDeferred = True
-
-        # Involute Spline 1 (Left flank)
-        p_coll1 = adsk.core.ObjectCollection.create()
-        for p in spline1_pts:
-            p_coll1.add(adsk.core.Point3D.create(p[0], p[1], 0.0))
-        spline1 = tooth_sketch.sketchCurves.sketchFittedSplines.add(p_coll1)
-
-        # Involute Spline 2 (Right flank)
-        p_coll2 = adsk.core.ObjectCollection.create()
-        for p in spline2_pts:
-            p_coll2.add(adsk.core.Point3D.create(p[0], p[1], 0.0))
-        spline2 = tooth_sketch.sketchCurves.sketchFittedSplines.add(p_coll2)
-
-        # Tooth Tip Arc
-        mid_tip = adsk.core.Point3D.create(outside_r_cm, 0.0, 0.0)
-        tooth_sketch.sketchCurves.sketchArcs.addByThreePoints(
-            spline1.endSketchPoint, mid_tip, spline2.endSketchPoint
-        )
-
-        # Root connection lines
-        tolerance = 0.001
-        if base_r_cm < root_r_cm:
-            tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(
-                spline2.startSketchPoint, spline1.startSketchPoint
+        # If Sun gear with motor shaft, add integral motor shaft coupling collar on bottom
+        if is_sun_gear and safe_bore_dia > 0:
+            collar_dia_mm = max(safe_bore_dia + 5.0, 11.0)
+            collar_len_mm = 6.0
+            
+            collar_sketch = sketches.add(xy_plane)
+            collar_sketch.name = f"{name}_Collar_Sketch"
+            collar_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                adsk.core.Point3D.create(0, 0, 0), (collar_dia_mm / 2.0) * 0.1
             )
-        else:
-            ang1 = math.atan2(spline1_pts[0][1], spline1_pts[0][0])
-            ang2 = math.atan2(spline2_pts[0][1], spline2_pts[0][0])
-            root_p1 = adsk.core.Point3D.create(
-                (root_r_cm - tolerance) * math.cos(ang1),
-                (root_r_cm - tolerance) * math.sin(ang1),
-                0.0
+            cls.add_shaft_bore(
+                sketch=collar_sketch,
+                shaft_dia_mm=safe_bore_dia,
+                shaft_type=bore_type,
+                d_flat_depth_mm=d_flat_depth_mm
             )
-            root_p2 = adsk.core.Point3D.create(
-                (root_r_cm - tolerance) * math.cos(ang2),
-                (root_r_cm - tolerance) * math.sin(ang2),
-                0.0
-            )
-            line1 = tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(root_p1, spline1.startSketchPoint)
-            line2 = tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(root_p2, spline2.startSketchPoint)
-            tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(line1.startSketchPoint, line2.startSketchPoint)
+            
+            collar_prof = None
+            for p in collar_sketch.profiles:
+                if p.profileLoops.count == 2:
+                    collar_prof = p
+                    break
+            if not collar_prof:
+                collar_prof = collar_sketch.profiles.item(0)
+                
+            c_input = extrudes.createInput(collar_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            c_dist = adsk.core.ValueInput.createByReal(-(collar_len_mm * 0.1))
+            c_input.setDistanceExtent(False, c_dist)
+            extrudes.add(c_input)
 
-        tooth_sketch.isComputeDeferred = False
-
-        # 4. Extrude Single Tooth (Join to Base Body)
-        tooth_prof = tooth_sketch.profiles.item(0)
-        tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-        tooth_ext_input.setDistanceExtent(False, dist)
-        tooth_ext_input.participantBodies = [base_body]
-        tooth_extrude = extrudes.add(tooth_ext_input)
-
-        # 5. Circular Pattern Tooth Around Base Cylinder
-        circular_patterns = features.circularPatternFeatures
-        entities = adsk.core.ObjectCollection.create()
-        entities.add(tooth_extrude)
-
-        cyl_face = base_extrude.sideFaces.item(0)
-        if cyl_face.edges.count == 2 and base_extrude.sideFaces.count > 1:
-            cyl_face = base_extrude.sideFaces.item(1)
-
-        pattern_input = circular_patterns.createInput(entities, cyl_face)
-        pattern_input.quantity = adsk.core.ValueInput.createByString(str(z_teeth))
-        pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
-        circular_patterns.add(pattern_input)
-
-        return base_body
+        return gear_body
 
     @classmethod
     def build_internal_ring_gear_body(
@@ -258,125 +238,108 @@ class GearBuilder:
         module: float,
         face_width_mm: float,
         outer_housing_dia_mm: float,
-        is_herringbone: bool = False,
-        helix_angle_deg: float = 25.0,
+        motor_code: str = "NEMA17",
         pressure_angle_deg: float = 20.0,
         backlash_mm: float = 0.05,
         name: str = "Ring_Gear_Housing"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds native Autodesk-standard internal Ring Gear body using Outer Tube Extrude + Internal Involute Tooth + Circular Pattern.
+        Builds the Complete Outer Ring Gear Housing Enclosure (NEMA square profile with corner bolt holes + internal teeth).
         """
         features = target_component.features
         sketches = target_component.sketches
         xy_plane = target_component.xYConstructionPlane
         face_width_cm = face_width_mm * 0.1
 
-        # 1. Compute Exact Internal Ring Geometry
-        geom = ToothProfileGenerator.get_internal_ring_tooth_geometry(
+        # 1. Generate 2D Internal Teeth Points
+        inner_points_mm = ToothProfileGenerator.generate_internal_ring_gear_polygon(
             z_ring=z_ring,
             module=module,
-            housing_outer_dia_mm=outer_housing_dia_mm,
             pressure_angle_deg=pressure_angle_deg,
             backlash_mm=backlash_mm
         )
 
-        root_r_cm = geom['root_r_cm']
-        tip_r_cm = geom['tip_r_cm']
-        base_r_cm = geom['base_r_cm']
-        housing_outer_r_cm = geom['housing_outer_r_cm']
-        spline1_pts = geom['spline1_pts']
-        spline2_pts = geom['spline2_pts']
+        # 2. Create Housing Sketch
+        housing_sketch = sketches.add(xy_plane)
+        housing_sketch.name = f"{name}_Sketch"
+        housing_sketch.isComputeDeferred = True
 
-        # 2. Base Outer Cylinder Tube (Outer Housing Wall + Inner Root Bore)
-        tube_sketch = sketches.add(xy_plane)
-        tube_sketch.name = f"{name}_Tube_Sketch"
-        tube_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-            adsk.core.Point3D.create(0, 0, 0), housing_outer_r_cm
-        )
-        tube_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-            adsk.core.Point3D.create(0, 0, 0), root_r_cm
-        )
+        # Draw Internal Teeth Profile
+        cls.draw_closed_spline_from_points(housing_sketch, inner_points_mm)
 
-        # Select donut profile
-        prof = None
-        for p in tube_sketch.profiles:
-            if p.profileLoops.count == 2:
-                prof = p
-                break
-        if not prof:
-            prof = tube_sketch.profiles.item(0)
+        # Draw Outer Housing Profile (NEMA 17 / 23 Square with corner bolt holes or Round)
+        lines = housing_sketch.sketchCurves.sketchLines
+        circles = housing_sketch.sketchCurves.sketchCircles
 
+        if "NEMA17" in motor_code.upper():
+            # NEMA 17: 42.3mm square, 31.0mm hole pitch (43.84mm PCD)
+            sq_w = 42.3 * 0.1
+            half_sq = sq_w / 2.0
+            hole_pitch = 31.0 * 0.1
+            half_hp = hole_pitch / 2.0
+            hole_r = (3.4 / 2.0) * 0.1  # M3 bolt clearance hole
+
+            # Square outer box
+            p1 = adsk.core.Point3D.create(-half_sq, -half_sq, 0)
+            p2 = adsk.core.Point3D.create(half_sq, -half_sq, 0)
+            p3 = adsk.core.Point3D.create(half_sq, half_sq, 0)
+            p4 = adsk.core.Point3D.create(-half_sq, half_sq, 0)
+            lines.addByTwoPoints(p1, p2)
+            lines.addByTwoPoints(p2, p3)
+            lines.addByTwoPoints(p3, p4)
+            lines.addByTwoPoints(p4, p1)
+
+            # 4 Corner Bolt Holes
+            for hx in [-half_hp, half_hp]:
+                for hy in [-half_hp, half_hp]:
+                    circles.addByCenterRadius(adsk.core.Point3D.create(hx, hy, 0), hole_r)
+
+        elif "NEMA23" in motor_code.upper():
+            # NEMA 23: 56.4mm square, 47.14mm hole pitch
+            sq_w = 56.4 * 0.1
+            half_sq = sq_w / 2.0
+            half_hp = (47.14 / 2.0) * 0.1
+            hole_r = (4.5 / 2.0) * 0.1  # M4 bolt hole
+
+            p1 = adsk.core.Point3D.create(-half_sq, -half_sq, 0)
+            p2 = adsk.core.Point3D.create(half_sq, -half_sq, 0)
+            p3 = adsk.core.Point3D.create(half_sq, half_sq, 0)
+            p4 = adsk.core.Point3D.create(-half_sq, half_sq, 0)
+            lines.addByTwoPoints(p1, p2)
+            lines.addByTwoPoints(p2, p3)
+            lines.addByTwoPoints(p3, p4)
+            lines.addByTwoPoints(p4, p1)
+
+            for hx in [-half_hp, half_hp]:
+                for hy in [-half_hp, half_hp]:
+                    circles.addByCenterRadius(adsk.core.Point3D.create(hx, hy, 0), hole_r)
+
+        else:
+            # Round Housing with Outer Diameter
+            outer_r_cm = (outer_housing_dia_mm / 2.0) * 0.1
+            circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), outer_r_cm)
+
+        housing_sketch.isComputeDeferred = False
+
+        # Find housing profile (the body enclosing the internal gear teeth)
+        target_prof = None
+        max_area = 0.0
+        for p in housing_sketch.profiles:
+            area = p.areaProperties().area
+            if area > max_area:
+                max_area = area
+                target_prof = p
+
+        if not target_prof:
+            target_prof = housing_sketch.profiles.item(0)
+
+        # Extrude Housing Enclosure
         extrudes = features.extrudeFeatures
-        ext_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        ext_input = extrudes.createInput(target_prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
         dist = adsk.core.ValueInput.createByReal(face_width_cm)
         ext_input.setDistanceExtent(False, dist)
-        tube_extrude = extrudes.add(ext_input)
-        ring_body = tube_extrude.bodies.item(0)
+        housing_extrude = extrudes.add(ext_input)
+        ring_body = housing_extrude.bodies.item(0)
         ring_body.name = name
-
-        # 3. Single Internal Tooth Sketch (Points inward toward center)
-        tooth_sketch = sketches.add(xy_plane)
-        tooth_sketch.name = f"{name}_Tooth_Sketch"
-        tooth_sketch.isComputeDeferred = True
-
-        # Involute Spline 1
-        p_coll1 = adsk.core.ObjectCollection.create()
-        for p in spline1_pts:
-            p_coll1.add(adsk.core.Point3D.create(p[0], p[1], 0.0))
-        spline1 = tooth_sketch.sketchCurves.sketchFittedSplines.add(p_coll1)
-
-        # Involute Spline 2
-        p_coll2 = adsk.core.ObjectCollection.create()
-        for p in spline2_pts:
-            p_coll2.add(adsk.core.Point3D.create(p[0], p[1], 0.0))
-        spline2 = tooth_sketch.sketchCurves.sketchFittedSplines.add(p_coll2)
-
-        # Tip Arc at innermost radius (tip_r_cm)
-        mid_tip = adsk.core.Point3D.create(tip_r_cm, 0.0, 0.0)
-        tooth_sketch.sketchCurves.sketchArcs.addByThreePoints(
-            spline1.startSketchPoint, mid_tip, spline2.startSketchPoint
-        )
-
-        # Root connection line along outer root radius
-        tolerance = 0.001
-        ang1 = math.atan2(spline1_pts[-1][1], spline1_pts[-1][0])
-        ang2 = math.atan2(spline2_pts[-1][1], spline2_pts[-1][0])
-        root_p1 = adsk.core.Point3D.create(
-            (root_r_cm + tolerance) * math.cos(ang1),
-            (root_r_cm + tolerance) * math.sin(ang1),
-            0.0
-        )
-        root_p2 = adsk.core.Point3D.create(
-            (root_r_cm + tolerance) * math.cos(ang2),
-            (root_r_cm + tolerance) * math.sin(ang2),
-            0.0
-        )
-        line1 = tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(spline1.endSketchPoint, root_p1)
-        line2 = tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(spline2.endSketchPoint, root_p2)
-        tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(line1.endSketchPoint, line2.endSketchPoint)
-
-        tooth_sketch.isComputeDeferred = False
-
-        # 4. Extrude Internal Tooth (Join to Ring Housing Body)
-        tooth_prof = tooth_sketch.profiles.item(0)
-        tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-        tooth_ext_input.setDistanceExtent(False, dist)
-        tooth_ext_input.participantBodies = [ring_body]
-        tooth_extrude = extrudes.add(tooth_ext_input)
-
-        # 5. Circular Pattern Internal Tooth Around Ring
-        circular_patterns = features.circularPatternFeatures
-        entities = adsk.core.ObjectCollection.create()
-        entities.add(tooth_extrude)
-
-        cyl_face = tube_extrude.sideFaces.item(0)
-        if cyl_face.edges.count == 2 and tube_extrude.sideFaces.count > 1:
-            cyl_face = tube_extrude.sideFaces.item(1)
-
-        pattern_input = circular_patterns.createInput(entities, cyl_face)
-        pattern_input.quantity = adsk.core.ValueInput.createByString(str(z_ring))
-        pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
-        circular_patterns.add(pattern_input)
 
         return ring_body
