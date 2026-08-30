@@ -21,8 +21,14 @@ if current_dir not in sys.path:
 try:
     import adsk.core
     import adsk.fusion
+    HTMLEventHandler = adsk.core.HTMLEventHandler
+    UserInterfaceGeneralEventHandler = adsk.core.UserInterfaceGeneralEventHandler
+    CommandCreatedEventHandler = adsk.core.CommandCreatedEventHandler
 except ImportError:
     adsk = None
+    HTMLEventHandler = object
+    UserInterfaceGeneralEventHandler = object
+    CommandCreatedEventHandler = object
 
 from cad.assembly_manager import PlanetaryAssemblyManager
 
@@ -33,7 +39,7 @@ handlers = []
 palette_id = 'PlanetaryGearboxPalette_v1'
 cmd_id = 'PlanetaryGearboxCmd_v1'
 
-class PaletteHTMLEventHandler(adsk.core.HTMLEventHandler):
+class PaletteHTMLEventHandler(HTMLEventHandler):
     """Handles incoming data/events from JavaScript inside the HTML Palette."""
     def __init__(self):
         super().__init__()
@@ -72,7 +78,7 @@ class PaletteHTMLEventHandler(adsk.core.HTMLEventHandler):
             if ui:
                 ui.messageBox(f"HTML Event Hatası: {str(e)}\n\n{traceback.format_exc()}", "Hata")
 
-class PaletteClosedHandler(adsk.core.UserInterfaceGeneralEventHandler):
+class PaletteClosedHandler(UserInterfaceGeneralEventHandler):
     """Handles palette close event."""
     def __init__(self):
         super().__init__()
@@ -121,7 +127,7 @@ def show_palette():
     palette.closed.add(on_closed)
     handlers.append(on_closed)
 
-class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
+class CommandCreatedEventHandler(CommandCreatedEventHandler):
     """Handles toolbar button click to show the UI."""
     def __init__(self):
         super().__init__()

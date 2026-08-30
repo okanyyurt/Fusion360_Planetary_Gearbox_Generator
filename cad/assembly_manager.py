@@ -18,7 +18,7 @@ from cad.gear_builder import GearBuilder
 from cad.carrier_builder import CarrierBuilder
 from cad.housing_builder import HousingBuilder
 
-class AssemblyManager:
+class PlanetaryAssemblyManager:
     """
     Orchestrates full 3D multi-stage planetary gearbox generation in Fusion 360.
     """
@@ -261,3 +261,5 @@ class AssemblyManager:
 
         cls._send_progress(palette, "✅ Redüktör Başarıyla Oluşturuldu!", 100)
         return True
+
+AssemblyManager = PlanetaryAssemblyManager
