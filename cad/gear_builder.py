@@ -13,7 +13,7 @@ except ImportError:
     adsk = None
 
 from core.tooth_profile import ToothProfileGenerator, Point2D
-from cad.housing_builder import HousingBuilder
+import cad.housing_builder
 
 class GearBuilder:
     """
@@ -399,7 +399,7 @@ class GearBuilder:
         spline2_pts = geom['spline2_pts']
 
         # Determine lightweight housing wall and bolt lug positions
-        bolt_r_cm, wall_r_cm, bolt_positions = HousingBuilder.get_bolt_and_housing_radii(
+        bolt_r_cm, wall_r_cm, bolt_positions = cad.housing_builder.HousingBuilder.get_bolt_and_housing_radii(
             z_ring=z_ring, module=module, motor_code=motor_code
         )
         
@@ -408,7 +408,7 @@ class GearBuilder:
         tube_sketch.name = f"{name}_Tube_Sketch"
         tube_sketch.isComputeDeferred = True
 
-        HousingBuilder.draw_lugged_housing_profile(
+        cad.housing_builder.HousingBuilder.draw_lugged_housing_profile(
             sketch=tube_sketch,
             wall_r_cm=wall_r_cm,
             bolt_positions=bolt_positions,
