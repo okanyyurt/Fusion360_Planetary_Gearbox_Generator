@@ -1,7 +1,6 @@
 """
 Fusion 360 Gearbox Housing, Motor Flange & Top Bearing Cover Builder.
-Constructs lightweight Ring Gear Housing with 100% solid 4-corner bolt lugs (kulaklar),
-NEMA motor adapter plates, top bearing caps, and clamping M3 tie-rod bolts.
+High-Speed batch-feature operations for 100% solid 4-corner bolt lugs (kulaklar).
 """
 import math
 from typing import Dict, Optional, List
@@ -16,7 +15,7 @@ from core.motor_catalog import get_motor_info
 
 class HousingBuilder:
     """
-    Builds lightweight housing with solid reinforced bolt lugs in Fusion 360.
+    High-Speed Builder for lightweight housing with solid reinforced bolt lugs in Fusion 360.
     """
 
     @staticmethod
@@ -71,7 +70,7 @@ class HousingBuilder:
         name: str = "Housing_Body"
     ) -> 'adsk.fusion.BRepBody':
         """
-        Builds a 100% solid cylinder with 4 integrated solid ear lugs (kulaklar) and 4 M3 through-holes.
+        Builds solid cylinder with 4 integrated solid ear lugs (kulaklar) using ultra-fast batch extrudes.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -79,7 +78,7 @@ class HousingBuilder:
         tie_r = (3.4 / 2.0) * 0.1  # M3 bolt clearance
         lug_r = 0.48               # 4.8mm outer lug radius
 
-        # 1. Base Cylinder Tube Extrusion
+        # 1. Base Cylinder Tube Extrusion (Single Instant Feature)
         tube_sketch = sketches.add(sketch_plane)
         tube_sketch.name = f"{name}_Tube_Sketch"
         tube_sketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), wall_r_cm)
@@ -101,31 +100,74 @@ class HousingBuilder:
         body = body_ext.bodies.item(0)
         body.name = name
 
-        # 2. 4 Solid Ear Lugs (Join to main cylinder)
-        lugs_sketch = sketches.add(sketch_plane)
-        lugs_sketch.name = f"{name}_Lugs_Sketch"
-        for bx, by in bolt_positions:
-            lugs_sketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), lug_r)
-
-        for p in lugs_sketch.profiles:
-            lug_in = extrudes.createInput(p, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            lug_in.setDistanceExtent(False, adsk.core.ValueInput.createByReal(height_cm))
-            lug_in.participantBodies = [body]
-            extrudes.add(lug_in)
-
-        # 3. 4 Bolt Through-Holes Cut
-        holes_sketch = sketches.add(sketch_plane)
-        holes_sketch.name = f"{name}_Holes_Sketch"
-        for bx, by in bolt_positions:
-            holes_sketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), tie_r)
-
-        for p in holes_sketch.profiles:
-            hole_in = extrudes.createInput(p, adsk.fusion.FeatureOperations.CutFeatureOperation)
-            hole_in.setDistanceExtent(False, adsk.core.ValueInput.createByReal(height_cm))
-            hole_in.participantBodies = [body]
-            extrudes.add(hole_in)
+        # 2. 4 Solid Ear Lugs (Batch Join in 1 single instant operation)
+        cls.add_lugs_and_holes_to_body(
+            target_component=target_component,
+            sketch_plane=sketch_plane,
+            target_body=body,
+            bolt_positions=bolt_positions,
+            height_cm=height_cm,
+            lug_r=lug_r,
+            tie_r=tie_r,
+            name=name
+        )
 
         return body
+
+    @classmethod
+    def add_lugs_and_holes_to_body(
+        cls,
+        target_component: 'adsk.fusion.Component',
+        sketch_plane: 'adsk.fusion.ConstructionPlane',
+        target_body: 'adsk.fusion.BRepBody',
+        bolt_positions: List[tuple],
+        height_cm: float,
+        lug_r: float = 0.48,
+        tie_r: float = 0.17,
+        name: str = "Part"
+    ) -> None:
+        """
+        Adds 4 solid ear lugs and cuts 4 bolt holes in 2 ultra-fast batch operations.
+        """
+        features = target_component.features
+        sketches = target_component.sketches
+        extrudes = features.extrudeFeatures
+
+        # Batch Lugs Join
+        lugs_sketch = sketches.add(sketch_plane)
+        lugs_sketch.name = f"{name}_Lugs_Sketch"
+        lugs_sketch.isComputeDeferred = True
+        for bx, by in bolt_positions:
+            lugs_sketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), lug_r)
+        lugs_sketch.isComputeDeferred = False
+
+        lug_coll = adsk.core.ObjectCollection.create()
+        for p in lugs_sketch.profiles:
+            lug_coll.add(p)
+
+        if lug_coll.count > 0:
+            lug_in = extrudes.createInput(lug_coll, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            lug_in.setDistanceExtent(False, adsk.core.ValueInput.createByReal(height_cm))
+            lug_in.participantBodies = [target_body]
+            extrudes.add(lug_in)
+
+        # Batch Holes Cut
+        holes_sketch = sketches.add(sketch_plane)
+        holes_sketch.name = f"{name}_Holes_Sketch"
+        holes_sketch.isComputeDeferred = True
+        for bx, by in bolt_positions:
+            holes_sketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), tie_r)
+        holes_sketch.isComputeDeferred = False
+
+        hole_coll = adsk.core.ObjectCollection.create()
+        for p in holes_sketch.profiles:
+            hole_coll.add(p)
+
+        if hole_coll.count > 0:
+            hole_in = extrudes.createInput(hole_coll, adsk.fusion.FeatureOperations.CutFeatureOperation)
+            hole_in.setDistanceExtent(False, adsk.core.ValueInput.createByReal(height_cm))
+            hole_in.participantBodies = [target_body]
+            extrudes.add(hole_in)
 
     @classmethod
     def build_motor_mount_plate(
@@ -165,9 +207,10 @@ class HousingBuilder:
             name=name
         )
 
-        # Cut 4 Motor Mounting Holes
+        # Cut 4 Motor Mounting Holes (Batch Cut)
         motor_sketch = sketches.add(xy_plane)
         motor_sketch.name = f"{name}_MotorHoles_Sketch"
+        motor_sketch.isComputeDeferred = True
         for i in range(4):
             ang = (math.pi / 4.0) + (i * math.pi / 2.0)
             bx = motor_bolt_pcd_cm * math.cos(ang)
@@ -175,9 +218,14 @@ class HousingBuilder:
             motor_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(bx, by, 0), motor_bolt_r_cm
             )
+        motor_sketch.isComputeDeferred = False
 
+        m_coll = adsk.core.ObjectCollection.create()
         for p in motor_sketch.profiles:
-            m_in = extrudes.createInput(p, adsk.fusion.FeatureOperations.CutFeatureOperation)
+            m_coll.add(p)
+
+        if m_coll.count > 0:
+            m_in = extrudes.createInput(m_coll, adsk.fusion.FeatureOperations.CutFeatureOperation)
             m_in.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-plate_thick_cm))
             m_in.participantBodies = [body]
             extrudes.add(m_in)
@@ -246,30 +294,40 @@ class HousingBuilder:
         cover_top_plane = cls.get_z_plane(target_component, (total_length_mm + 5.0) * 0.1)
         bolt_bodies = []
 
-        for b_idx, (bx, by) in enumerate(positions):
-            # Bolt Shank
-            shank_sketch = sketches.add(cover_top_plane)
+        # Batch Shanks
+        shank_sketch = sketches.add(cover_top_plane)
+        shank_sketch.isComputeDeferred = True
+        for bx, by in positions:
             shank_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(bx, by, 0), bolt_r_cm
             )
-            shank_prof = shank_sketch.profiles.item(0)
-            shank_input = extrudes.createInput(shank_prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            shank_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-total_len_cm))
-            shank_ext = extrudes.add(shank_input)
-            bolt_body = shank_ext.bodies.item(0)
-            bolt_body.name = f"M3_Bolt_{b_idx + 1}"
+        shank_sketch.isComputeDeferred = False
 
-            # Bolt Head
-            head_sketch = sketches.add(cover_top_plane)
+        shank_coll = adsk.core.ObjectCollection.create()
+        for p in shank_sketch.profiles:
+            shank_coll.add(p)
+
+        shank_input = extrudes.createInput(shank_coll, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        shank_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-total_len_cm))
+        shank_ext = extrudes.add(shank_input)
+        for i in range(shank_ext.bodies.count):
+            bolt_bodies.append(shank_ext.bodies.item(i))
+
+        # Batch Heads
+        head_sketch = sketches.add(cover_top_plane)
+        head_sketch.isComputeDeferred = True
+        for bx, by in positions:
             head_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(bx, by, 0), head_r_cm
             )
-            head_prof = head_sketch.profiles.item(0)
-            head_input = extrudes.createInput(head_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            head_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(head_h_cm))
-            head_input.participantBodies = [bolt_body]
-            extrudes.add(head_input)
+        head_sketch.isComputeDeferred = False
 
-            bolt_bodies.append(bolt_body)
+        head_coll = adsk.core.ObjectCollection.create()
+        for p in head_sketch.profiles:
+            head_coll.add(p)
+
+        head_input = extrudes.createInput(head_coll, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+        head_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(head_h_cm))
+        extrudes.add(head_input)
 
         return bolt_bodies
