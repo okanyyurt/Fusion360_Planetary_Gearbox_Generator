@@ -1,6 +1,6 @@
 """
 Fusion 360 Planet Carrier Builder.
-Creates high-strength Tri-Star / Spider carrier assemblies, axle pins with circlip/segman grooves,
+Creates high-strength Tri-Star / Spider carrier assemblies, axle pins with spacer steps & circlip grooves,
 inter-stage sun driver shafts, and extended D-cut output shafts.
 """
 import math
@@ -43,7 +43,7 @@ class CarrierBuilder:
         name: str = "Planet_Carrier"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Constructs a Tri-Star / Spider carrier with axle pins, circlip grooves,
+        Constructs a Tri-Star / Spider carrier with axle pins, bearing spacer steps, circlip grooves,
         inter-stage coupling shaft (intermediate stages) or main output shaft (final stage).
         """
         features = target_component.features
@@ -114,13 +114,13 @@ class CarrierBuilder:
                 arm_input.participantBodies = [carrier_body]
                 extrudes.add(arm_input)
 
-        # 3. Planet Axle Pins & Circlip / Segman Grooves
+        # 3. Planet Axle Pins, Spacer Steps & Circlip / Segman Grooves
         for i in range(num_planets):
             angle = (2.0 * math.pi * i) / num_planets
             px = cd_cm * math.cos(angle)
             py = cd_cm * math.sin(angle)
 
-            # A. Axle Pin (Extends DOWNWARDS from carrier_plane into planet gear bores)
+            # A. Axle Pin (Extends DOWNWARDS through planet bearing and bottom stop lip)
             pin_sketch = sketches.add(carrier_plane)
             pin_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(px, py, 0), pin_r_cm
@@ -133,9 +133,23 @@ class CarrierBuilder:
             pin_input.participantBodies = [carrier_body]
             extrudes.add(pin_input)
 
-            # B. DIN 6799 Circlip / Segman Groove near lower pin tip
+            # B. Bearing Spacer Step (Fatura) under spider plate (0.8mm step)
             try:
-                groove_plane = cls.get_z_plane(target_component, (z_base_mm - 0.8) * 0.1)
+                step_sketch = sketches.add(carrier_plane)
+                step_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.08
+                )
+                step_prof = step_sketch.profiles.item(0)
+                step_input = extrudes.createInput(step_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                step_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-0.08))
+                step_input.participantBodies = [carrier_body]
+                extrudes.add(step_input)
+            except Exception:
+                pass
+
+            # C. DIN 6799 Circlip / Segman Groove near lower pin tip
+            try:
+                groove_plane = cls.get_z_plane(target_component, (z_base_mm - 0.5) * 0.1)
                 groove_sketch = sketches.add(groove_plane)
                 groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                     adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.05

@@ -1,7 +1,7 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
-Constructs Sun Gear, Planet Gears with deep bearing seat pockets (rulman yuvaları),
-and Internal Ring Gear Enclosure with guaranteed thick structural walls outside the teeth.
+Constructs Sun Gear, Planet Gears with single-bearing top seats and bottom retaining stop shoulders,
+and lightweight Internal Ring Gear Housing with 4 corner bolt lugs (kulaklar).
 """
 import math
 from typing import List, Tuple, Optional
@@ -103,7 +103,8 @@ class GearBuilder:
         name: str = "Gear"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds external gear body (Spur or Herringbone) with bearing pockets and flush tooth heights.
+        Builds external gear body (Spur or Herringbone).
+        For Planet Gear: Creates wide pin clearance bore + top bearing pocket + bottom retaining stop shoulder.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -135,7 +136,8 @@ class GearBuilder:
         if is_sun_gear:
             safe_bore_dia = min(bore_dia_mm, max(1.0, (root_r_cm * 20.0) - 1.5))
         else:
-            safe_bore_dia = bore_dia_mm  # pin clearance hole (e.g. 4.4mm)
+            # Pin clearance hole through the bottom retaining lip (e.g. pin + 1.0mm)
+            safe_bore_dia = bore_dia_mm + 0.8
 
         # 2. Base Cylinder Sketch on sketch_plane
         base_sketch = sketches.add(sketch_plane)
@@ -284,18 +286,20 @@ class GearBuilder:
         pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
         circular_patterns.add(pattern_input)
 
-        # 6. If Planet Gear, cut Top and Bottom Precision Bearing Seat Pockets
+        # 6. If Planet Gear: Cut Top Bearing Seat Pocket down to bottom 1.5mm stop lip
         if not is_sun_gear and bearing_outer_dia_mm > safe_bore_dia:
             try:
-                # Check maximum allowed bearing diameter against tooth roots
                 max_bearing_dia = (root_r_cm * 20.0) - (2.0 * min_rim_thickness_mm)
                 actual_bearing_dia = min(bearing_outer_dia_mm, max_bearing_dia)
                 
-                if actual_bearing_dia > (safe_bore_dia + 1.0):
+                if actual_bearing_dia > (safe_bore_dia + 0.6):
                     pocket_r_cm = (actual_bearing_dia / 2.0) * 0.1
-                    pocket_depth_cm = min(bearing_width_mm, (face_width_mm - 2.0) / 2.0) * 0.1
+                    # Depth leaves a 1.5mm solid retaining stop lip at the bottom
+                    bottom_lip_mm = 1.5
+                    pocket_depth_mm = max(bearing_width_mm, face_width_mm - bottom_lip_mm)
+                    pocket_depth_cm = pocket_depth_mm * 0.1
                     
-                    # Top Bearing Seat Pocket
+                    # Top Bearing Seat Pocket Cut
                     top_plane = cls.get_z_plane(target_component, z_off_cm + face_width_cm)
                     top_sketch = sketches.add(top_plane)
                     top_sketch.sketchCurves.sketchCircles.addByCenterRadius(
@@ -306,17 +310,6 @@ class GearBuilder:
                     tp_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-pocket_depth_cm))
                     tp_input.participantBodies = [base_body]
                     extrudes.add(tp_input)
-
-                    # Bottom Bearing Seat Pocket
-                    bot_sketch = sketches.add(sketch_plane)
-                    bot_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                        adsk.core.Point3D.create(cx_cm, cy_cm, 0), pocket_r_cm
-                    )
-                    bp_prof = bot_sketch.profiles.item(0)
-                    bp_input = extrudes.createInput(bp_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                    bp_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(pocket_depth_cm))
-                    bp_input.participantBodies = [base_body]
-                    extrudes.add(bp_input)
             except Exception:
                 pass
 
@@ -386,7 +379,7 @@ class GearBuilder:
         name: str = "Ring_Gear_Housing"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds complete Ring Gear Housing with guaranteed thick walls and safe bolt positions.
+        Builds lightweight Ring Gear Housing with 4 corner bolt lugs (kulaklar) saving material.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -405,46 +398,23 @@ class GearBuilder:
         spline1_pts = geom['spline1_pts']
         spline2_pts = geom['spline2_pts']
 
-        # Determine guaranteed safe outer housing and bolt radii
-        bolt_r_cm, housing_outer_r_cm, bolt_positions = HousingBuilder.get_bolt_and_housing_radii(
+        # Determine lightweight housing wall and bolt lug positions
+        bolt_r_cm, wall_r_cm, bolt_positions = HousingBuilder.get_bolt_and_housing_radii(
             z_ring=z_ring, module=module, motor_code=motor_code
         )
         
-        # 2. Base Housing Tube Sketch
+        # 2. Base Lightweight Lugged Housing Tube Sketch
         tube_sketch = sketches.add(xy_plane)
         tube_sketch.name = f"{name}_Tube_Sketch"
         tube_sketch.isComputeDeferred = True
 
-        lines = tube_sketch.sketchCurves.sketchLines
-        circles = tube_sketch.sketchCurves.sketchCircles
-
-        # Inner tip cylinder bore
-        circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), tip_r_cm)
-
-        # Outer Housing Shape & 4 Corner Bolt Holes
-        hole_r = (3.4 / 2.0) * 0.1  # M3 clearance hole
-
-        if "NEMA17" in motor_code.upper() and housing_outer_r_cm <= 2.15:
-            sq_w = 42.3 * 0.1
-            half_sq = sq_w / 2.0
-
-            p1 = adsk.core.Point3D.create(-half_sq, -half_sq, 0)
-            p2 = adsk.core.Point3D.create(half_sq, -half_sq, 0)
-            p3 = adsk.core.Point3D.create(half_sq, half_sq, 0)
-            p4 = adsk.core.Point3D.create(-half_sq, half_sq, 0)
-            lines.addByTwoPoints(p1, p2)
-            lines.addByTwoPoints(p2, p3)
-            lines.addByTwoPoints(p3, p4)
-            lines.addByTwoPoints(p4, p1)
-
-            for bx, by in bolt_positions:
-                circles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), hole_r)
-
-        else:
-            # Expanded Flange with 4 Corner Bolt Holes (Guaranteed outside tooth root)
-            circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), housing_outer_r_cm)
-            for bx, by in bolt_positions:
-                circles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), hole_r)
+        HousingBuilder.draw_lugged_housing_profile(
+            sketch=tube_sketch,
+            wall_r_cm=wall_r_cm,
+            bolt_positions=bolt_positions,
+            inner_dia_r_cm=tip_r_cm,
+            motor_code=motor_code
+        )
 
         tube_sketch.isComputeDeferred = False
 
