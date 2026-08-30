@@ -116,6 +116,8 @@ class PlanetaryAssemblyManager:
         flange_body = HousingBuilder.build_motor_mount_plate(
             target_component=flange_comp,
             motor_code=motor_code,
+            z_ring=z_ring,
+            module=module,
             housing_outer_dia_mm=housing_outer_dia,
             plate_thickness_mm=5.0,
             name="Motor_Mount_Flange"
@@ -260,6 +262,8 @@ class PlanetaryAssemblyManager:
         cover_body = HousingBuilder.build_top_cover_plate(
             target_component=cover_comp,
             motor_code=motor_code,
+            z_ring=z_ring,
+            module=module,
             housing_outer_dia_mm=housing_outer_dia,
             bearing_outer_dia_mm=16.0,
             output_shaft_dia_mm=output_shaft_dia,
@@ -267,6 +271,9 @@ class PlanetaryAssemblyManager:
             plate_thickness_mm=5.0,
             name="Top_Bearing_Cover"
         )
+        if cover_body:
+            cls.apply_appearance(cover_body, "Aluminum")
+
         # 6. Build 4 Corner Clamping Tie-Rod Bolts (Clamping Top Cover, Housing & Motor Flange)
         bolt_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
         bolt_comp = bolt_occ.component
@@ -274,7 +281,8 @@ class PlanetaryAssemblyManager:
         bolts = HousingBuilder.build_tie_rod_bolts(
             target_component=bolt_comp,
             motor_code=motor_code,
-            housing_outer_dia_mm=housing_outer_dia,
+            z_ring=z_ring,
+            module=module,
             total_length_mm=total_gearbox_length,
             name="M3_Tie_Rod_Bolts"
         )
