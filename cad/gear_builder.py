@@ -63,9 +63,9 @@ class GearBuilder:
                 p2 = adsk.core.Point3D.create(x_half, y_flat, 0)
                 lines.addByTwoPoints(p1, p2)
                 
-                center = adsk.core.Point3D.create(0, 0, 0)
+                p_bottom = adsk.core.Point3D.create(0, -r_cm, 0)
                 arcs = sketch.sketchCurves.sketchArcs
-                arcs.addByCenterStartSweep(center, p2, 2.0 * math.pi - 2.0 * math.asin(x_half / r_cm))
+                arcs.addByThreePoints(p2, p_bottom, p1)
             else:
                 circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), r_cm)
                 
@@ -244,11 +244,12 @@ class GearBuilder:
         pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
         circular_patterns.add(pattern_input)
 
-        # If Sun gear, add integral motor shaft clamping collar on bottom
+        # If Sun gear, add integral motor shaft clamping collar on bottom + M3 setscrew hole
         if is_sun_gear and safe_bore_dia > 0:
             collar_dia_mm = max(safe_bore_dia + 6.0, 11.0)
             collar_len_mm = 6.0
             collar_sketch = sketches.add(xy_plane)
+            collar_sketch.name = f"{name}_Collar_Sketch"
             collar_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(0, 0, 0), (collar_dia_mm / 2.0) * 0.1
             )
@@ -272,6 +273,23 @@ class GearBuilder:
             c_input.setDistanceExtent(False, c_dist)
             c_input.participantBodies = [base_body]
             extrudes.add(c_input)
+
+            # Radial M3 Setscrew Hole on side of collar
+            try:
+                xz_plane = target_component.xZConstructionPlane
+                screw_sketch = sketches.add(xz_plane)
+                screw_sketch.name = f"{name}_Setscrew_Sketch"
+                screw_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(0, -(collar_len_mm * 0.5 * 0.1), 0), (3.0 / 2.0) * 0.1
+                )
+                screw_prof = screw_sketch.profiles.item(0)
+                screw_input = extrudes.createInput(screw_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                screw_dist = adsk.core.ValueInput.createByReal((collar_dia_mm / 2.0) * 0.1)
+                screw_input.setDistanceExtent(False, screw_dist)
+                screw_input.participantBodies = [base_body]
+                extrudes.add(screw_input)
+            except Exception:
+                pass
 
         return base_body
 

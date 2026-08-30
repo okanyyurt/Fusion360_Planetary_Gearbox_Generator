@@ -47,7 +47,9 @@ class HousingBuilder:
         lines = plate_sketch.sketchCurves.sketchLines
         circles = plate_sketch.sketchCurves.sketchCircles
 
-        if "NEMA17" in motor_code.upper():
+        actual_housing_r = (housing_outer_dia_mm / 2.0) * 0.1
+        
+        if "NEMA17" in motor_code.upper() and housing_outer_dia_mm <= 45.0:
             sq_w = 42.3 * 0.1
             half_sq = sq_w / 2.0
             half_hp = (31.0 / 2.0) * 0.1
@@ -72,11 +74,11 @@ class HousingBuilder:
                     circles.addByCenterRadius(adsk.core.Point3D.create(hx, hy, 0), tie_r)
 
         else:
-            # Round Flange
-            plate_r_cm = (housing_outer_dia_mm / 2.0) * 0.1
-            circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), plate_r_cm)
+            # Expanded Flange matching large housing
+            circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), actual_housing_r)
             circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), (14.0 / 2.0) * 0.1)
 
+            # Motor mounting holes in center
             for i in range(4):
                 angle = (math.pi / 4.0) + (i * math.pi / 2.0)
                 bx = motor_bolt_pcd_cm * math.cos(angle)
