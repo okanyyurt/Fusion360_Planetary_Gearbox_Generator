@@ -194,12 +194,16 @@ class CarrierBuilder:
 
                 grooves_coll = adsk.core.ObjectCollection.create()
                 for p in groove_sketch.profiles:
-                    grooves_coll.add(p)
+                    # Select ONLY the outer annular donut (has 2 profile loops: outer circle + inner d2 circle)
+                    # This preserves the central solid d2 core (which has 1 loop)
+                    if p.profileLoops.count == 2:
+                        grooves_coll.add(p)
 
-                g_input = extrudes.createInput(grooves_coll, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-groove_w_cm))
-                g_input.participantBodies = [carrier_body]
-                extrudes.add(g_input)
+                if grooves_coll.count > 0:
+                    g_input = extrudes.createInput(grooves_coll, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                    g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-groove_w_cm))
+                    g_input.participantBodies = [carrier_body]
+                    extrudes.add(g_input)
             except Exception:
                 pass
 
