@@ -1,7 +1,7 @@
 """
-Parametric Involute Tooth Profile Generator.
-Generates mathematically exact 2D coordinates for External (Sun/Planet) 
-and Internal (Ring) gears following ISO/AGMA gear standards.
+Parametric Involute Tooth Geometry Engine.
+Generates mathematically exact single tooth and space profiles for native
+Fusion 360 feature operations (Extrude + Circular Pattern).
 """
 import math
 from typing import List, Tuple, Dict
@@ -9,155 +9,147 @@ from typing import List, Tuple, Dict
 Point2D = Tuple[float, float]
 Point3D = Tuple[float, float, float]
 
-def inv(phi_rad: float) -> float:
-    """Involute function: inv(phi) = tan(phi) - phi"""
-    return math.tan(phi_rad) - phi_rad
+def involute_point(base_circle_radius: float, dist_from_center: float) -> Tuple[float, float]:
+    """
+    Autodesk standard involute curve point calculator.
+    Returns (x, y) coordinates for a point at distance dist_from_center from gear center.
+    """
+    if dist_from_center < base_circle_radius:
+        dist_from_center = base_circle_radius
+        
+    triangle_side = math.sqrt(max(0.0, dist_from_center**2 - base_circle_radius**2))
+    alpha = triangle_side / base_circle_radius
+    ratio = max(-1.0, min(1.0, base_circle_radius / dist_from_center))
+    theta = alpha - math.acos(ratio)
+    
+    x = dist_from_center * math.cos(theta)
+    y = dist_from_center * math.sin(theta)
+    return x, y
 
 class ToothProfileGenerator:
     """
-    Precision Involute Tooth Profile Generator for Fusion 360.
-    Generates continuous, smooth closed polygons in millimeters.
+    High-precision involute geometry calculator for native Fusion 360 CAD modeling.
+    Outputs dimensions and coordinates in Centimeters (cm).
     """
 
     @staticmethod
-    def generate_external_gear_polygon(
-        z: int,
-        module: float,
-        pressure_angle_deg: float = 20.0,
+    def get_external_tooth_features(
+        z: int, 
+        module: float, 
+        pressure_angle_deg: float = 20.0, 
         backlash_mm: float = 0.05,
-        pts_per_flank: int = 10
-    ) -> List[Point2D]:
+        num_involute_points: int = 12
+    ) -> Dict:
         """
-        Generates full 2D closed polygon coordinates for an external spur gear (Sun / Planet).
-        All coordinates returned in millimeters (mm).
+        Calculates Autodesk-standard tooth profile for Sun and Planet gears.
+        Returns radial parameters and single tooth flank splines in centimeters (cm).
         """
         z = int(z)
-        m = float(module)
-        alpha = math.radians(pressure_angle_deg)
+        m_cm = float(module) * 0.1
+        pa_rad = math.radians(pressure_angle_deg)
+        pitch_dia_cm = z * m_cm
+        pitch_r_cm = pitch_dia_cm / 2.0
+        dedendum_cm = 1.157 * m_cm
+        root_r_cm = pitch_r_cm - dedendum_cm
+        base_r_cm = pitch_r_cm * math.cos(pa_rad)
+        outside_r_cm = (z + 2.0) * m_cm / 2.0
         
-        r_pitch = m * z / 2.0
-        r_base = r_pitch * math.cos(alpha)
-        r_tip = r_pitch + 1.0 * m
-        r_root = r_pitch - 1.25 * m
-        
-        # Effective base of involute
-        r_inv_start = max(r_base, r_root)
-        
-        # Tooth thickness on pitch circle (with backlash tooth thinning)
-        s_pitch = (math.pi * m / 2.0) - backlash_mm
-        half_thick_angle = s_pitch / (2.0 * r_pitch)
-        inv_alpha = inv(alpha)
-        
-        pitch_angle = 2.0 * math.pi / z
-        
-        # 1. Right flank radii (root up to tip)
-        radii_up = [r_inv_start + (r_tip - r_inv_start) * (i / (pts_per_flank - 1)) for i in range(pts_per_flank)]
-        # 2. Left flank radii (tip down to root)
-        radii_down = list(reversed(radii_up))
-        
-        gear_points: List[Point2D] = []
-        
-        for k in range(z):
-            rot = k * pitch_angle
+        inv_pts = []
+        inv_size = outside_r_cm - base_r_cm
+        for i in range(num_involute_points):
+            r_curr = base_r_cm + (inv_size / (num_involute_points - 1)) * i
+            inv_pts.append(involute_point(base_r_cm, r_curr))
             
-            # A. Root land center before tooth
-            t_gap_start = rot - (pitch_angle / 2.0)
-            gear_points.append((r_root * math.cos(t_gap_start), r_root * math.sin(t_gap_start)))
+        pitch_inv_pt = involute_point(base_r_cm, pitch_r_cm)
+        pitch_pt_angle = math.atan2(pitch_inv_pt[1], pitch_inv_pt[0])
+        
+        tooth_thick_angle = math.pi / z
+        backlash_cm = backlash_mm * 0.1
+        backlash_angle = backlash_cm / pitch_r_cm
+        rotate_angle = -((tooth_thick_angle / 2.0) - backlash_angle + pitch_pt_angle)
+        
+        cos_a = math.cos(rotate_angle)
+        sin_a = math.sin(rotate_angle)
+        
+        spline1_pts = []
+        spline2_pts = []
+        for x, y in inv_pts:
+            rx = x * cos_a - y * sin_a
+            ry = x * sin_a + y * cos_a
+            spline1_pts.append((rx, ry))
+            spline2_pts.append((rx, -ry))
             
-            # B. Root corner under right flank
-            t_right_root = rot - (half_thick_angle + inv_alpha)
-            gear_points.append((r_root * math.cos(t_right_root), r_root * math.sin(t_right_root)))
-            
-            # C. Right Involute Flank (from base to tip)
-            for r in radii_up:
-                cos_phi = max(-1.0, min(1.0, r_base / r))
-                phi = math.acos(cos_phi)
-                theta = half_thick_angle + inv_alpha - inv(phi)
-                t_curr = rot - theta
-                gear_points.append((r * math.cos(t_curr), r * math.sin(t_curr)))
-                
-            # D. Tooth Tip Center
-            gear_points.append((r_tip * math.cos(rot), r_tip * math.sin(rot)))
-            
-            # E. Left Involute Flank (from tip down to base)
-            for r in radii_down:
-                cos_phi = max(-1.0, min(1.0, r_base / r))
-                phi = math.acos(cos_phi)
-                theta = half_thick_angle + inv_alpha - inv(phi)
-                t_curr = rot + theta
-                gear_points.append((r * math.cos(t_curr), r * math.sin(t_curr)))
-                
-            # F. Root corner under left flank
-            t_left_root = rot + (half_thick_angle + inv_alpha)
-            gear_points.append((r_root * math.cos(t_left_root), r_root * math.sin(t_left_root)))
-            
-        return gear_points
+        return {
+            'num_teeth': z,
+            'module_cm': m_cm,
+            'pitch_r_cm': pitch_r_cm,
+            'root_r_cm': root_r_cm,
+            'base_r_cm': base_r_cm,
+            'outside_r_cm': outside_r_cm,
+            'spline1_pts': spline1_pts,
+            'spline2_pts': spline2_pts
+        }
 
     @staticmethod
-    def generate_internal_ring_gear_polygon(
-        z_ring: int,
-        module: float,
-        pressure_angle_deg: float = 20.0,
+    def get_internal_tooth_space_features(
+        z_ring: int, 
+        module: float, 
+        pressure_angle_deg: float = 20.0, 
         backlash_mm: float = 0.05,
-        pts_per_flank: int = 10
-    ) -> List[Point2D]:
+        num_involute_points: int = 12
+    ) -> Dict:
         """
-        Generates internal tooth profile for Ring Gear (pointing inward).
-        Inner tip bore: r_tip = r_pitch - 1.0 * m
-        Outer root: r_root = r_pitch + 1.25 * m
-        All coordinates returned in millimeters (mm).
+        Calculates the exact involute tooth space pocket for Internal Ring Gear cut operation.
+        Returns radial parameters and space pocket flank splines in centimeters (cm).
         """
-        z = int(z_ring)
-        m = float(module)
-        alpha = math.radians(pressure_angle_deg)
+        z_r = int(z_ring)
+        m_cm = float(module) * 0.1
+        pa_rad = math.radians(pressure_angle_deg)
+        pitch_dia_cm = z_r * m_cm
+        pitch_r_cm = pitch_dia_cm / 2.0
         
-        r_pitch = m * z / 2.0
-        r_base = r_pitch * math.cos(alpha)
-        r_tip_inner = r_pitch - 1.0 * m
-        r_root_outer = r_pitch + 1.25 * m
+        # In internal ring gear:
+        # tip_r is inner cylinder bore
+        tip_r_cm = pitch_r_cm - 1.0 * m_cm
+        # root_r is the outer bottom of the tooth space
+        root_r_cm = pitch_r_cm + 1.25 * m_cm
+        base_r_cm = pitch_r_cm * math.cos(pa_rad)
         
-        r_inv_start = max(r_base, r_tip_inner)
+        r_inv_start = max(base_r_cm, tip_r_cm)
+        inv_size = root_r_cm - r_inv_start
         
-        # Solid tooth thickness on pitch circle
-        s_pitch = (math.pi * m / 2.0) - backlash_mm
-        half_thick_angle = s_pitch / (2.0 * r_pitch)
-        inv_alpha = inv(alpha)
-        
-        pitch_angle = 2.0 * math.pi / z
-        
-        # Internal tooth: Right flank goes from outer root down to inner tip
-        radii_in = [r_root_outer - (r_root_outer - r_inv_start) * (i / (pts_per_flank - 1)) for i in range(pts_per_flank)]
-        radii_out = list(reversed(radii_in))
-        
-        ring_points: List[Point2D] = []
-        
-        for k in range(z):
-            rot = k * pitch_angle
+        inv_pts = []
+        for i in range(num_involute_points):
+            r_curr = r_inv_start + (inv_size / (num_involute_points - 1)) * i
+            inv_pts.append(involute_point(base_r_cm, r_curr))
             
-            # A. Root land center before tooth
-            t_gap = rot - (pitch_angle / 2.0)
-            ring_points.append((r_root_outer * math.cos(t_gap), r_root_outer * math.sin(t_gap)))
+        pitch_inv_pt = involute_point(base_r_cm, pitch_r_cm)
+        pitch_pt_angle = math.atan2(pitch_inv_pt[1], pitch_inv_pt[0])
+        
+        space_angle = (math.pi / z_r) + ((backlash_mm * 0.1) / pitch_r_cm)
+        rotate_angle = -((space_angle / 2.0) + pitch_pt_angle)
+        
+        cos_a = math.cos(rotate_angle)
+        sin_a = math.sin(rotate_angle)
+        
+        spline1_pts = []
+        spline2_pts = []
+        for x, y in inv_pts:
+            rx = x * cos_a - y * sin_a
+            ry = x * sin_a + y * cos_a
+            spline1_pts.append((rx, ry))
+            spline2_pts.append((rx, -ry))
             
-            # B. Right Flank of Solid Tooth (outer root down to inner tip)
-            for r in radii_in:
-                cos_phi = max(-1.0, min(1.0, r_base / max(r_base, r)))
-                phi = math.acos(cos_phi)
-                theta = half_thick_angle + (inv(phi) - inv_alpha)
-                t_curr = rot - theta
-                ring_points.append((r * math.cos(t_curr), r * math.sin(t_curr)))
-                
-            # C. Tip Center of Solid Tooth (innermost point)
-            ring_points.append((r_tip_inner * math.cos(rot), r_tip_inner * math.sin(rot)))
-            
-            # D. Left Flank of Solid Tooth (inner tip up to outer root)
-            for r in radii_out:
-                cos_phi = max(-1.0, min(1.0, r_base / max(r_base, r)))
-                phi = math.acos(cos_phi)
-                theta = half_thick_angle + (inv(phi) - inv_alpha)
-                t_curr = rot + theta
-                ring_points.append((r * math.cos(t_curr), r * math.sin(t_curr)))
-                
-        return ring_points
+        return {
+            'num_teeth': z_r,
+            'module_cm': m_cm,
+            'pitch_r_cm': pitch_r_cm,
+            'tip_r_cm': tip_r_cm,
+            'root_r_cm': root_r_cm,
+            'base_r_cm': base_r_cm,
+            'spline1_pts': spline1_pts,
+            'spline2_pts': spline2_pts
+        }
 
     @staticmethod
     def calculate_herringbone_twist_angle(

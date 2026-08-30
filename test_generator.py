@@ -51,15 +51,15 @@ def run_tests():
     best3 = res3[0]
     print(f"  [OK] Found {len(res3)} candidates. Best: {best3['total_ratio']}:1 (Error: {best3['error_percent']}%)")
 
-    # Test 4: Full Involute Gear Polygon Generation
-    print("\n[TEST 4] Tooth Profile Coordinates Generation")
-    pts_ext = ToothProfileGenerator.generate_external_gear_polygon(z=16, module=1.0, backlash_mm=0.05)
-    print(f"  [OK] External Sun/Planet profile generated: {len(pts_ext)} points")
-    assert len(pts_ext) >= 100, "External points missing!"
+    # Test 4: High-Speed Involute Feature Generation
+    print("\n[TEST 4] Tooth Profile Feature Generation")
+    feat_ext = ToothProfileGenerator.get_external_tooth_features(z=16, module=1.0, backlash_mm=0.05)
+    print(f"  [OK] External Sun/Planet features: RootR={feat_ext['root_r_cm']*10:.2f}mm, TipR={feat_ext['outside_r_cm']*10:.2f}mm, SplinePts={len(feat_ext['spline1_pts'])}")
+    assert len(feat_ext['spline1_pts']) >= 10, "External spline points missing!"
 
-    pts_int = ToothProfileGenerator.generate_internal_ring_gear_polygon(z_ring=48, module=1.0, backlash_mm=0.05)
-    print(f"  [OK] Internal Ring gear profile generated: {len(pts_int)} points")
-    assert len(pts_int) >= 300, "Internal ring points missing!"
+    feat_int = ToothProfileGenerator.get_internal_tooth_space_features(z_ring=48, module=1.0, backlash_mm=0.05)
+    print(f"  [OK] Internal Ring space features: TipBoreR={feat_int['tip_r_cm']*10:.2f}mm, RootCutR={feat_int['root_r_cm']*10:.2f}mm, SpaceSplinePts={len(feat_int['spline1_pts'])}")
+    assert len(feat_int['spline1_pts']) >= 10, "Internal space points missing!"
 
     twist_angle = ToothProfileGenerator.calculate_herringbone_twist_angle(face_width=12.0, pitch_radius=10.0, helix_angle_deg=25.0)
     print(f"  [OK] Herringbone twist angle: {round(twist_angle * 180 / 3.14159, 2)} degrees")
