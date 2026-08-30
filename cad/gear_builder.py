@@ -233,16 +233,13 @@ class GearBuilder:
         tooth_ext_input.participantBodies = [base_body]
         tooth_extrude = extrudes.add(tooth_ext_input)
 
-        # 5. Circular Pattern Tooth Around Base Cylinder
+        # 5. Circular Pattern Tooth Around Base Cylinder (using component Z axis)
         circular_patterns = features.circularPatternFeatures
         entities = adsk.core.ObjectCollection.create()
         entities.add(tooth_extrude)
 
-        cyl_face = base_extrude.sideFaces.item(0)
-        if cyl_face.edges.count == 2 and base_extrude.sideFaces.count > 1:
-            cyl_face = base_extrude.sideFaces.item(1)
-
-        pattern_input = circular_patterns.createInput(entities, cyl_face)
+        axis = target_component.zConstructionAxis
+        pattern_input = circular_patterns.createInput(entities, axis)
         pattern_input.quantity = adsk.core.ValueInput.createByString(str(z_teeth))
         pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
         circular_patterns.add(pattern_input)
@@ -407,13 +404,13 @@ class GearBuilder:
         cut_input.participantBodies = [ring_body]
         cut_extrude = extrudes.add(cut_input)
 
-        # 5. Circular Pattern Cut Space around inner cylinder
+        # 5. Circular Pattern Cut Space around inner cylinder (using component Z axis)
         circular_patterns = features.circularPatternFeatures
         entities = adsk.core.ObjectCollection.create()
         entities.add(cut_extrude)
 
-        cyl_face = tube_extrude.sideFaces.item(0)
-        pattern_input = circular_patterns.createInput(entities, cyl_face)
+        axis = target_component.zConstructionAxis
+        pattern_input = circular_patterns.createInput(entities, axis)
         pattern_input.quantity = adsk.core.ValueInput.createByString(str(z_ring))
         pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
         circular_patterns.add(pattern_input)
