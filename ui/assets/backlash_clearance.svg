@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 300" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #1e2430; }
+      .card { fill: #272f3d; stroke: #3b465a; stroke-width: 1.5; rx: 8; }
+      .title { fill: #4fc3f7; font-family: system-ui, sans-serif; font-size: 15px; font-weight: bold; text-anchor: middle; }
+      .desc { fill: #cfd8dc; font-family: system-ui, sans-serif; font-size: 11px; }
+      .pitch-line { stroke: #ffd54f; stroke-width: 1.5; stroke-dasharray: 4,4; }
+      .nominal-flank { stroke: #90a4ae; stroke-width: 2; fill: none; stroke-dasharray: 2,2; }
+      .offset-flank { stroke: #00e676; stroke-width: 2.5; fill: none; }
+      .backlash-gap { stroke: #ff5252; stroke-width: 2; }
+      .text-val { fill: #00e676; font-family: monospace; font-size: 12px; font-weight: bold; }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" class="bg" rx="10"/>
+  <text x="350" y="32" class="title">Diş Boşluğu (Backlash) & 3D Baskı / CNC Tolerans Yönetimi</text>
+
+  <!-- Left: Involute tooth section diagram -->
+  <rect x="25" y="55" width="410" height="225" class="card"/>
+  
+  <!-- Tooth outline -->
+  <path d="M 60 230 C 90 220, 110 180, 125 100 C 130 70, 150 70, 155 100 C 170 180, 190 220, 220 230" fill="#37474f" stroke="#78909c" stroke-width="2"/>
+  
+  <!-- Nominal Flank (Dotted) -->
+  <path d="M 50 230 C 80 220, 100 180, 115 100" class="nominal-flank"/>
+  
+  <!-- Backlash Gap Indicator -->
+  <line x1="115" y1="140" x2="122" y2="140" stroke="#ff5252" stroke-width="3"/>
+  <text x="135" y="144" fill="#ff5252" font-family="monospace" font-size="11px" font-weight="bold">Backlash (Δs)</text>
+
+  <!-- Pitch Circle line -->
+  <line x1="40" y1="150" x2="240" y2="150" class="pitch-line"/>
+  <text x="245" y="154" fill="#ffd54f" font-size="10px">Hatve Dairesi (d)</text>
+
+  <!-- Explanation list on the left card -->
+  <text x="270" y="85" fill="#4fc3f7" font-weight="bold" font-size="12px">Neden Backlash Gerekir?</text>
+  <text x="270" y="110" class="desc">• 3D baskıda plastik genleşmesi</text>
+  <text x="270" y="130" class="desc">  ve filaman taşması olur.</text>
+  <text x="270" y="150" class="desc">• Sıfır boşlukta dişliler sıkışır</text>
+  <text x="270" y="170" class="desc">  ve motor dönemez.</text>
+  <text x="270" y="195" class="desc">• Script, evolvent eğrisini</text>
+  <text x="270" y="215" class="desc">  mikron bazında ofsetler.</text>
+
+  <!-- Right: Recommended Presets Table -->
+  <rect x="450" y="55" width="225" height="225" class="card"/>
+  <text x="562" y="80" fill="#ffd54f" font-weight="bold" font-size="13px" text-anchor="middle">Önerilen Değerler</text>
+  
+  <rect x="465" y="95" width="195" height="40" fill="#1e2430" rx="4"/>
+  <text x="475" y="112" fill="#fff" font-size="11px" font-weight="bold">FDM 3D Baskı (PLA/PETG)</text>
+  <text x="475" y="127" class="text-val">0.20 mm - 0.30 mm</text>
+
+  <rect x="465" y="145" width="195" height="40" fill="#1e2430" rx="4"/>
+  <text x="475" y="162" fill="#fff" font-size="11px" font-weight="bold">SLA / Reçine Baskı</text>
+  <text x="475" y="177" class="text-val">0.10 mm - 0.15 mm</text>
+
+  <rect x="465" y="195" width="195" height="40" fill="#1e2430" rx="4"/>
+  <text x="475" y="212" fill="#fff" font-size="11px" font-weight="bold">CNC Metal / Enjeksiyon</text>
+  <text x="475" y="227" class="text-val">0.05 mm - 0.08 mm</text>
+</svg>

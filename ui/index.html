@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="tr" id="html_root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fusion 360 Planet Redüktör Tasarımcısı</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">⚙️</div>
+        <div>
+          <h1>Planetary Gearbox Generator</h1>
+          <p class="subtitle">Parametrik Planet Dişli & Balıksırtı CAD Motoru</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-accent" data-i18n="badgeFusion">Fusion 360</span>
+        <span class="badge badge-success" data-i18n="badgeVersion">v1.0 Pro</span>
+        <button id="lang_toggle_btn" class="lang-toggle-btn" title="Switch to English" onclick="toggleLanguage()">
+          <span class="lang-flag">🇬🇧</span>
+          <span class="lang-label">EN</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="tab-power">
+        <span class="tab-icon">⚡</span> 1. <span data-i18n="tabMotor">Motor & Oran</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-geartype">
+        <span class="tab-icon">✨</span> 2. <span data-i18n="tabGearType">Dişli & Balıksırtı</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-bearings">
+        <span class="tab-icon">🔘</span> 3. <span data-i18n="tabBearings">Rulman & Mil</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-housing">
+        <span class="tab-icon">🛡️</span> 4. <span data-i18n="tabHousing">Taşıyıcı & Gövde</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-tolerances">
+        <span class="tab-icon">🎯</span> 5. <span data-i18n="tabTolerances">3D Baskı / Tolerans</span>
+      </button>
+    </nav>
+
+    <!-- Tab Contents -->
+    <main class="tab-content-wrapper">
+      
+      <!-- TAB 1: MOTOR & ORAN -->
+      <section id="tab-power" class="tab-pane active">
+        <div class="section-title">
+          <h3>Hedef Redüksiyon ve Motor Şaft Girişi</h3>
+        </div>
+
+        <div class="form-grid">
+          <!-- Target Ratio -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="target_ratio">Hedef Hız Düşürme / Tork Artışı Oranı (i)</label>
+              <button class="help-btn" data-modal="modal-assembly" title="Montaj ve Oran Açıklaması">?</button>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="target_ratio" value="25.0" min="2.0" max="500.0" step="0.5">
+              <span class="unit">: 1</span>
+            </div>
+            <span class="field-hint">Örn: 25 yazarsanız hızı 25 kat düşürür, torku ~24 kat artırır.</span>
+          </div>
+
+          <!-- Number of Stages -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="stages_count">Kademe Sayısı (Stage Count)</label>
+              <button class="help-btn" data-modal="modal-multistage" title="Çok Kademeli Aktarım Açıklaması">?</button>
+            </div>
+            <select id="stages_count">
+              <option value="1">1 Kademe (Oran: 3:1 ~ 9:1)</option>
+              <option value="2" selected>2 Kademe (Oran: 9:1 ~ 80:1)</option>
+              <option value="3">3 Kademe (Oran: 50:1 ~ 500:1)</option>
+            </select>
+          </div>
+
+          <!-- Motor Preset -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="motor_preset">Motor Montaj Standardı</label>
+              <button class="help-btn" data-modal="modal-shafts" title="Motor ve Şaft Tipleri">?</button>
+            </div>
+            <select id="motor_preset">
+              <option value="NEMA17" selected>NEMA 17 Step Motor (42mm)</option>
+              <option value="NEMA23">NEMA 23 Step Motor (57mm)</option>
+              <option value="NEMA34">NEMA 34 Step Motor (86mm)</option>
+              <option value="MOTOR_775">775 DC Motor (44mm)</option>
+              <option value="MOTOR_540_550">540 / 550 RC Motor (36mm)</option>
+              <option value="CUSTOM">Özel / Manuel Giriş</option>
+            </select>
+          </div>
+
+          <!-- Motor Shaft Diameter -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="motor_shaft_dia">Motor Şaft Çapı (d_motor)</label>
+              <button class="help-btn" data-modal="modal-shafts" title="Şaft Ölçüleri">?</button>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="motor_shaft_dia" value="5.0" min="1.0" max="30.0" step="0.1">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+
+          <!-- Motor Shaft Type -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="motor_shaft_type">Motor Şaft Kesit Tipi</label>
+              <button class="help-btn" data-modal="modal-shafts" title="Şaft Tipleri ve Kesitleri">?</button>
+            </div>
+            <select id="motor_shaft_type">
+              <option value="D_CUT" selected>D-Şaft (Tek Düzlük)</option>
+              <option value="ROUND">Yuvarlak (Pres-Geçme / Setskur)</option>
+              <option value="DOUBLE_D">Çift D-Şaft (Simetrik Düzlük)</option>
+              <option value="KEYWAY">Kamalı Şaft (DIN 6885)</option>
+            </select>
+          </div>
+
+          <!-- Module Selection -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="module">Dişli Modülü (m)</label>
+              <span class="badge badge-info" id="module_rec_badge">Öneri: 1.0mm</span>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="module" value="1.0" min="0.4" max="5.0" step="0.1">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint">3D Baskı için 0.8mm - 1.5mm idealdir.</span>
+          </div>
+
+          <!-- Planet Count -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="num_planets">Planet Dişli Sayısı (Kademe Başı)</label>
+              <button class="help-btn" data-modal="modal-assembly" title="Planet Yerleşimi">?</button>
+            </div>
+            <select id="num_planets">
+              <option value="3" selected>3 Planet (120° Simetri - En Yaygın)</option>
+              <option value="4">4 Planet (90° Simetri - Yüksek Yük)</option>
+              <option value="5">5 Planet (72° Simetri - Ağır Hizmet)</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: DIŞLI TIPI & BALIKSIRTI -->
+      <section id="tab-geartype" class="tab-pane">
+        <div class="section-title">
+          <h3>Dişli Geometrisi ve Balıksırtı (Herringbone) Seçenekleri</h3>
+        </div>
+
+        <div class="form-grid">
+          <!-- Gear Profile Type -->
+          <div class="form-group full-width">
+            <div class="label-row">
+              <label>Dişli Tipi Tercihi</label>
+              <button class="help-btn" data-modal="modal-herringbone" title="Balıksırtı ve Düz Dişli Karşılaştırması">?</button>
+            </div>
+            <div class="radio-card-grid">
+              <label class="radio-card active">
+                <input type="radio" name="gear_type" value="HERRINGBONE" checked>
+                <div class="radio-card-content">
+                  <div class="radio-card-title">★ Balıksırtı (Herringbone / Çavuş)</div>
+                  <p>Zıt açılı çift helis ile eksenel kuvvetleri tamamen sıfırlar. Yüksek tork, sessiz ve 3D baskı için en stabil dişlidir.</p>
+                </div>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="gear_type" value="SPUR">
+                <div class="radio-card-content">
+                  <div class="radio-card-title">Düz Dişli (Spur)</div>
+                  <p>Klasik düz evolvent dişli. İmalatı ve montajı en kolaydır.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Helix Angle -->
+          <div class="form-group" id="group_helix_angle">
+            <div class="label-row">
+              <label for="helix_angle">Balıksırtı Helis Açısı (β)</label>
+              <button class="help-btn" data-modal="modal-herringbone" title="Helis Açısı Bilgisi">?</button>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="helix_angle" value="25.0" min="15.0" max="40.0" step="1.0">
+              <span class="unit">derece (°)</span>
+            </div>
+            <span class="field-hint">Standart: 25° - 30°. Yüksek açı yumuşak kavramayı artırır.</span>
+          </div>
+
+          <!-- Face Width -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="face_width">Diş Genişliği (Face Width - b)</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="face_width" value="12.0" min="4.0" max="50.0" step="1.0">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+
+          <!-- Pressure Angle -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="pressure_angle">Kavrama Açısı (Pressure Angle - α)</label>
+            </div>
+            <select id="pressure_angle">
+              <option value="20.0" selected>20° (Standart ISO/AGMA)</option>
+              <option value="25.0">25° (3D Baskı / Ağır Yük Diş Kökü)</option>
+              <option value="14.5">14.5° (Hassas / Düşük Boşluk)</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: RULMAN & MIL -->
+      <section id="tab-bearings" class="tab-pane">
+        <div class="section-title">
+          <h3>Planet Dişli Yataklama ve Rulman Seçimi</h3>
+        </div>
+
+        <div class="form-grid">
+          <!-- Bearing Mode -->
+          <div class="form-group full-width">
+            <div class="label-row">
+              <label for="bearing_type">Planet Yataklama Tipi</label>
+              <button class="help-btn" data-modal="modal-bearing" title="Rulman ve Pim Montajı">?</button>
+            </div>
+            <select id="bearing_type">
+              <option value="688ZZ" selected>688ZZ (Ø8 x Ø16 x 5mm) - İdeal Orta Boy</option>
+              <option value="608ZZ">608ZZ (Ø8 x Ø22 x 7mm) - Standart Paten/Sağlam</option>
+              <option value="686ZZ">686ZZ (Ø6 x Ø13 x 5mm) - İnce 6mm</option>
+              <option value="684ZZ">684ZZ (Ø4 x Ø9 x 4mm) - Kompakt 4mm (NEMA17)</option>
+              <option value="623ZZ">623ZZ (Ø3 x Ø10 x 4mm) - Mikro 3mm</option>
+              <option value="MR105ZZ">MR105-ZZ (Ø5 x Ø10 x 4mm) - Robotik İnce</option>
+              <option value="MR117ZZ">MR117-ZZ (Ø7 x Ø11 x 3mm) - Ultra İnce</option>
+              <option value="MR128ZZ">MR128-ZZ (Ø8 x Ø12 x 3.5mm) - Ultra İnce 8mm</option>
+              <option value="CUSTOM_PIN">Rulmansız (Doğrudan Çelik Pim / Bronz Burç)</option>
+            </select>
+          </div>
+
+          <!-- Plain Pin Dia (if CUSTOM_PIN) -->
+          <div class="form-group" id="group_pin_dia">
+            <div class="label-row">
+              <label for="pin_dia">Pim / Mil Çapı (d_pin)</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="pin_dia" value="5.0" min="1.5" max="20.0" step="0.5">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: TAŞIYICI & GÖVDE -->
+      <section id="tab-housing" class="tab-pane">
+        <div class="section-title">
+          <h3>Planet Taşıyıcı (Carrier), Dış Gövde ve Çıkış Şaftı</h3>
+        </div>
+
+        <div class="form-grid">
+          <!-- Generate Complete Housing Checkbox -->
+          <div class="form-group full-width">
+            <label class="checkbox-container">
+              <input type="checkbox" id="generate_housing" checked>
+              <span class="checkmark"></span>
+              <strong>Komple Redüktör Gövdesi ve Motor Flanşı Çizilsin</strong>
+            </label>
+            <span class="field-hint">İşaret kaldırılırsa sadece serbest dişli çarklar ve taşıyıcı çizilir.</span>
+          </div>
+
+          <!-- Output Shaft Diameter -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="output_shaft_dia">Redüktör Çıkış Şaft Çapı</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="output_shaft_dia" value="8.0" min="2.0" max="40.0" step="0.5">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+
+          <!-- Output Shaft Length -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="output_shaft_len">Çıkış Şaft Uzunluğu</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="output_shaft_len" value="20.0" min="5.0" max="80.0" step="1.0">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+
+          <!-- Carrier Plate Thickness -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="carrier_thick">Taşıyıcı Plaka Kalınlığı</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="carrier_thick" value="3.5" min="2.0" max="15.0" step="0.5">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: TOLERANS & 3D BASKI -->
+      <section id="tab-tolerances" class="tab-pane">
+        <div class="section-title">
+          <h3>Üretim Yöntemi, Diş Boşluğu (Backlash) & Toleranslar</h3>
+        </div>
+
+        <div class="form-grid">
+          <!-- Manufacturing Preset -->
+          <div class="form-group full-width">
+            <div class="label-row">
+              <label for="mfg_preset">Hedef İmalat Yöntemi Preseti</label>
+              <button class="help-btn" data-modal="modal-backlash" title="Backlash ve Tolerans Açıklaması">?</button>
+            </div>
+            <select id="mfg_preset">
+              <option value="FDM_3D" selected>FDM 3D Yazıcı (PLA / PETG / ABS) - Backlash: 0.22mm</option>
+              <option value="SLA_RESIN">Reçine / SLA 3D Yazıcı - Backlash: 0.12mm</option>
+              <option value="CNC_METAL">CNC İşleme / Metal Freze - Backlash: 0.05mm</option>
+              <option value="CUSTOM">Özel Değer Girişi</option>
+            </select>
+          </div>
+
+          <!-- Custom Backlash -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="backlash">Diş Profil Boşluğu (Backlash Clearance)</label>
+              <button class="help-btn" data-modal="modal-backlash" title="Backlash Şeması">?</button>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="backlash" value="0.22" min="0.0" max="1.0" step="0.01">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+
+          <!-- Bearing Fit Tolerance -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="bearing_tolerance">Rulman / Pim Yuvası Ofseti</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="bearing_tolerance" value="0.08" min="-0.1" max="0.3" step="0.01">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint">+ değer yuvaları genişletir (kolay montaj için).</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- LIVE REAL-TIME CALCULATION SUMMARY CARD -->
+    <div class="calc-summary-card">
+      <div class="calc-header">
+        <span class="calc-title">📊 Gerçek Zamanlı Dişli & Kinematik Sentezi</span>
+        <span class="badge badge-success" id="calc_status_badge">✓ Montaj Şartı Doğrulandı</span>
+      </div>
+      
+      <div class="calc-metrics-grid">
+        <div class="metric-item">
+          <span class="metric-label">Gerçekleşen Oran</span>
+          <span class="metric-val" id="metric_ratio">25.00 : 1</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Güneş Diş Sayısı (Zs)</span>
+          <span class="metric-val" id="metric_zs">12</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Planet Diş Sayısı (Zp)</span>
+          <span class="metric-val" id="metric_zp">18</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Çember Diş Sayısı (Zr)</span>
+          <span class="metric-val" id="metric_zr">48</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Dış Gövde Çapı</span>
+          <span class="metric-val" id="metric_od">~58.0 mm</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Temas Oranı (Overlap)</span>
+          <span class="metric-val" id="metric_contact">&gt; 2.2</span>
+        </div>
+      </div>
+
+      <div class="candidate-selector-wrapper" id="candidate_wrapper">
+        <label for="candidate_select">Bulunan En Uygun Dişli Kombinasyonları:</label>
+        <select id="candidate_select"></select>
+      </div>
+    </div>
+
+    <!-- Action Footer -->
+    <footer class="app-footer">
+      <button class="btn btn-secondary" id="btn_reset" data-i18n="btnReset">Varsayılanlara Sıfırla</button>
+      <button class="btn btn-primary" id="btn_generate">
+        <span class="btn-icon">🚀</span> <span data-i18n="btnGenerate">Fusion 360'ta 3D Çizimi Başlat</span>
+      </button>
+    </footer>
+  </div>
+
+  <!-- Progress Overlay (shown during 3D generation) -->
+  <div class="progress-overlay" id="progress_overlay" style="display:none;">
+    <div class="progress-card">
+      <div class="progress-spinner">⚙️</div>
+      <p class="progress-msg" id="progress_msg" data-i18n="progressGenerating">Dişliler oluşturuluyor, lütfen bekleyin...</p>
+      <p class="progress-warn" data-i18n="progressWarning">⚠️ Bu işlem Fusion 360 modeline göre 15-60 saniye sürebilir.</p>
+      <div class="progress-bar"><div class="progress-fill" id="progress_fill"></div></div>
+    </div>
+  </div>
+
+  <!-- HELP & VISUAL MODAL OVERLAYS -->
+  <div class="modal-overlay" id="modal_overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal_title">Teknik Yardım ve Şema</h3>
+        <button class="modal-close-btn" id="modal_close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-image-container" id="modal_image_container">
+          <!-- Dynamic SVG injected here -->
+        </div>
+        <div class="modal-description" id="modal_text">
+          <!-- Text explanation -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

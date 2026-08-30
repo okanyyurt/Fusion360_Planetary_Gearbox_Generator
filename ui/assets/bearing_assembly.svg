@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #1e2430; }
+      .card { fill: #272f3d; stroke: #3b465a; stroke-width: 1.5; rx: 8; }
+      .title { fill: #4fc3f7; font-family: system-ui, sans-serif; font-size: 15px; font-weight: bold; text-anchor: middle; }
+      .desc { fill: #cfd8dc; font-family: system-ui, sans-serif; font-size: 11px; text-anchor: middle; }
+      .metal { fill: #90a4ae; stroke: #455a64; stroke-width: 2; }
+      .ball { fill: #eceff1; stroke: #546e7a; stroke-width: 1.5; }
+      .pin { fill: #ffb74d; stroke: #f57c00; stroke-width: 2; }
+      .gear { fill: #455a64; stroke: #263238; stroke-width: 2; }
+      .dim { stroke: #00e676; stroke-width: 1.5; stroke-dasharray: 3,3; }
+      .dim-text { fill: #00e676; font-family: monospace; font-size: 11px; font-weight: bold; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" class="bg" rx="10"/>
+
+  <!-- Left: Ball Bearing Option (608, 688, MR105 etc.) -->
+  <rect x="25" y="20" width="310" height="280" class="card" stroke="#4fc3f7"/>
+  <text x="180" y="48" class="title">Seçenek A: Standart Bilyalı Rulman</text>
+  
+  <!-- Planet Gear cross section -->
+  <rect x="60" y="80" width="240" height="30" class="gear"/>
+  <rect x="60" y="170" width="240" height="30" class="gear"/>
+  <text x="75" y="100" fill="#fff" font-size="10px">Planet Dişli Gövdesi</text>
+
+  <!-- Bearing Outer Ring -->
+  <rect x="110" y="110" width="140" height="15" class="metal"/>
+  <rect x="110" y="155" width="140" height="15" class="metal"/>
+
+  <!-- Balls -->
+  <circle cx="140" cy="140" r="10" class="ball"/>
+  <circle cx="180" cy="140" r="10" class="ball"/>
+  <circle cx="220" cy="140" r="10" class="ball"/>
+
+  <!-- Carrier Pin passing through center -->
+  <rect x="50" y="132" width="260" height="16" class="pin"/>
+  <text x="180" y="144" fill="#000" font-size="9px" font-weight="bold" text-anchor="middle">Taşıyıcı Pimi (d_pin)</text>
+
+  <!-- Dimensions -->
+  <text x="180" y="235" class="dim-text">Dış Çap (D) / İç Çap (d) / Genişlik (B)</text>
+  <text x="180" y="260" class="desc">• Düşük sürtünme ve yüksek verim</text>
+  <text x="180" y="278" class="desc">• Planet içine sıkı/pres geçme oturur</text>
+
+  <!-- Right: Plain Pin / Bushing Option -->
+  <rect x="365" y="20" width="310" height="280" class="card"/>
+  <text x="520" y="48" class="title">Seçenek B: Rulmansız Düz Mil / Burç</text>
+
+  <!-- Planet Gear cross section -->
+  <rect x="400" y="80" width="240" height="40" class="gear"/>
+  <rect x="400" y="160" width="240" height="40" class="gear"/>
+
+  <!-- Bronze Bushing or Direct Smooth Pin -->
+  <rect x="390" y="125" width="260" height="30" class="pin"/>
+  <text x="520" y="144" fill="#000" font-size="10px" font-weight="bold" text-anchor="middle">Çelik Pim veya Bronz Burç (Ø d_mil)</text>
+
+  <text x="520" y="235" class="dim-text">Mil Çapı + 0.15mm Yatak Boşluğu</text>
+  <text x="520" y="260" class="desc">• Çok kompakt ve minyatür sistemler</text>
+  <text x="520" y="278" class="desc">• 3D baskıda rulman gerekmeden doğrudan mil</text>
+</svg>

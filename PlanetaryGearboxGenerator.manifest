@@ -1,0 +1,13 @@
+{
+	"autodeskProduct":	"Fusion",
+	"type":	"addin",
+	"id":	"e3a7b9c1-4d5e-4f8a-9b2c-1a2b3c4d5e6f",
+	"author":	"Okan Yeşilyurt & Antigravity",
+	"description":	{
+		"":	"Parametric Multi-Stage Planetary Gearbox Generator with Herringbone / Spur Gears, Bearing Catalog, and Visual Engineering Tooltips for Fusion 360."
+	},
+	"version":	"1.0.0",
+	"runOnStartup":	false,
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
