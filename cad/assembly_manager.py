@@ -1,7 +1,7 @@
 """
 Fusion 360 Planetary Gearbox Assembly Manager.
-Coordinates multi-stage hierarchy, precise spatial transformations, component meshing,
-and material appearances for the complete Planetary Gearbox assembly.
+Coordinates multi-stage hierarchy, dedicated component occurrences for every moving gear,
+spider carriers, housing enclosures, and top output bearing caps.
 """
 import math
 from typing import Dict, List, Optional
@@ -72,7 +72,7 @@ class PlanetaryAssemblyManager:
         root_comp = design.rootComponent
 
         # Extract config parameters
-        total_ratio = config.get("total_ratio", 25.0)
+        total_ratio = config.get("total_ratio", 8.0)
         stages_data = config.get("stages", [])
         if not stages_data:
             return False
@@ -107,10 +107,14 @@ class PlanetaryAssemblyManager:
         housing_outer_dia = d_ring_pitch + (module * 6.0) + 8.0
         total_gearbox_length = num_stages * (face_width + 6.0) + 2.0
 
-        # 2. Build Motor Flange Adapter (Base)
+        # 2. Build Motor Flange Adapter (Base Component at Z = 0)
         cls._send_progress(palette, "🔧 2/5: Motor montaj flanşı üretiliyor...", 25)
+        flange_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        flange_comp = flange_occ.component
+        flange_comp.name = "Motor_Mount_Flange"
+
         flange_body = HousingBuilder.build_motor_mount_plate(
-            target_component=master_comp,
+            target_component=flange_comp,
             motor_code=motor_code,
             housing_outer_dia_mm=housing_outer_dia,
             plate_thickness_mm=5.0,
@@ -119,11 +123,15 @@ class PlanetaryAssemblyManager:
         if flange_body:
             cls.apply_appearance(flange_body, "Aluminum")
 
-        # 3. Build Outer Ring Gear Housing Enclosure
+        # 3. Build Outer Ring Gear Housing Enclosure (Component at Z = 0)
         cls._send_progress(palette, "🛡️ 3/5: Çember dişli gövdesi oluşturuluyor...", 45)
         if config.get("generate_housing", True):
+            ring_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+            ring_comp = ring_occ.component
+            ring_comp.name = "Ring_Gear_Housing"
+
             ring_body = GearBuilder.build_internal_ring_gear_body(
-                target_component=master_comp,
+                target_component=ring_comp,
                 z_ring=z_ring,
                 module=module,
                 face_width_mm=total_gearbox_length,
@@ -142,7 +150,9 @@ class PlanetaryAssemblyManager:
         for stage_idx, stage in enumerate(stages_data):
             cls._send_progress(palette, f"⚡ 4/5: Kademe {stage_idx + 1} dişlileri ve taşıyıcı çiziliyor...", 60 + stage_idx * 15)
             
-            stage_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+            stage_mat = adsk.core.Matrix3D.create()
+            stage_mat.setCell(2, 3, z_current_offset * 0.1)
+            stage_occ = master_comp.occurrences.addNewComponent(stage_mat)
             stage_comp = stage_occ.component
             stage_comp.name = f"Stage_{stage_idx + 1}"
             
@@ -152,16 +162,19 @@ class PlanetaryAssemblyManager:
             np_planets = int(stage.get("num_planets", 3))
             cd_mm = module * (zs + zp) / 2.0
             
-            # Sun gear bore: Stage 1 connects to motor shaft; Stage 2+ connects to Stage 1 carrier
             is_first_stage = (stage_idx == 0)
             is_final_stage = (stage_idx == num_stages - 1)
             
             sun_bore = motor_shaft_dia if is_first_stage else 6.0
             sun_bore_type = motor_shaft_type if is_first_stage else "ROUND"
             
-            # A. Build Sun Gear Body
+            # A. Build Sun Gear Component
+            sun_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+            sun_comp = sun_occ.component
+            sun_comp.name = f"Sun_Gear_Stg{stage_idx + 1}"
+
             sun_body = GearBuilder.build_external_gear_body(
-                target_component=stage_comp,
+                target_component=sun_comp,
                 z_teeth=zs,
                 module=module,
                 face_width_mm=face_width,
@@ -177,8 +190,7 @@ class PlanetaryAssemblyManager:
             if sun_body:
                 cls.apply_appearance(sun_body, "Brass")
                 
-            # B. Build Planet Gears (x N)
-            # Check safe planet bore
+            # B. Build Planet Gears as Individual Components (x N)
             root_planet_r = (module * zp / 2.0) - 1.25 * module
             safe_planet_bore = min(bearing_info["d_outer"], (root_planet_r * 2.0) - 2.0)
             if safe_planet_bore < 3.0:
@@ -189,7 +201,11 @@ class PlanetaryAssemblyManager:
                 px_cm = (cd_mm * math.cos(planet_angle)) * 0.1
                 py_cm = (cd_mm * math.sin(planet_angle)) * 0.1
                 
-                planet_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+                planet_mat = adsk.core.Matrix3D.create()
+                planet_mat.setCell(0, 3, px_cm)
+                planet_mat.setCell(1, 3, py_cm)
+                
+                planet_occ = stage_comp.occurrences.addNewComponent(planet_mat)
                 planet_comp = planet_occ.component
                 planet_comp.name = f"Planet_{stage_idx + 1}_{p_idx + 1}"
                 
@@ -209,16 +225,14 @@ class PlanetaryAssemblyManager:
                 )
                 if planet_body:
                     cls.apply_appearance(planet_body, "Steel")
-                    
-                # Position planet at pitch circle
-                mat = adsk.core.Matrix3D.create()
-                mat.setCell(0, 3, px_cm)
-                mat.setCell(1, 3, py_cm)
-                planet_occ.transform = mat
                 
-            # C. Build Spider Planet Carrier
+            # C. Build Spider Planet Carrier Component
+            carrier_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+            carrier_comp = carrier_occ.component
+            carrier_comp.name = f"Carrier_Stg{stage_idx + 1}"
+
             carrier_body = CarrierBuilder.build_carrier_component(
-                target_component=stage_comp,
+                target_component=carrier_comp,
                 center_distance_mm=cd_mm,
                 num_planets=np_planets,
                 pin_dia_mm=pin_dia,
@@ -231,19 +245,19 @@ class PlanetaryAssemblyManager:
             )
             if carrier_body:
                 cls.apply_appearance(carrier_body, "Aluminum")
-                
-            # Shift stage along Z axis
-            stage_mat = adsk.core.Matrix3D.create()
-            stage_mat.setCell(2, 3, z_current_offset * 0.1)
-            stage_occ.transform = stage_mat
             
             z_current_offset += face_width + 5.0
 
-        # 5. Build Top Output Bearing Cover Cap
+        # 5. Build Top Output Bearing Cover Cap (Component at Z = total_gearbox_length)
         cls._send_progress(palette, "🎯 5/5: Üst rulman kapağı ekleniyor...", 95)
-        top_cover_z = total_gearbox_length
+        top_mat = adsk.core.Matrix3D.create()
+        top_mat.setCell(2, 3, total_gearbox_length * 0.1)
+        cover_occ = master_comp.occurrences.addNewComponent(top_mat)
+        cover_comp = cover_occ.component
+        cover_comp.name = "Top_Bearing_Cover"
+
         cover_body = HousingBuilder.build_top_cover_plate(
-            target_component=master_comp,
+            target_component=cover_comp,
             motor_code=motor_code,
             housing_outer_dia_mm=housing_outer_dia,
             bearing_outer_dia_mm=16.0,
@@ -253,11 +267,6 @@ class PlanetaryAssemblyManager:
         )
         if cover_body:
             cls.apply_appearance(cover_body, "Aluminum")
-            
-            # Position top cover at top of housing
-            top_mat = adsk.core.Matrix3D.create()
-            top_mat.setCell(2, 3, top_cover_z * 0.1)
-            # Find occurrence if needed or move body
 
         cls._send_progress(palette, "✅ Redüktör Başarıyla Oluşturuldu!", 100)
         return True
