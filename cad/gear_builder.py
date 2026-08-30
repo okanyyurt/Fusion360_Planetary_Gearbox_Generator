@@ -1,7 +1,7 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
 Constructs Sun Gear, Planet Gears with single-bearing top seats and bottom retaining stop shoulders,
-and lightweight Internal Ring Gear Housing with 4 corner bolt lugs (kulaklar).
+and lightweight Internal Ring Gear Housing with 100% solid 4-corner bolt lugs (kulaklar).
 """
 import math
 from typing import List, Tuple, Optional
@@ -294,12 +294,10 @@ class GearBuilder:
                 
                 if actual_bearing_dia > (safe_bore_dia + 0.6):
                     pocket_r_cm = (actual_bearing_dia / 2.0) * 0.1
-                    # Depth leaves a 1.5mm solid retaining stop lip at the bottom
                     bottom_lip_mm = 1.5
                     pocket_depth_mm = max(bearing_width_mm, face_width_mm - bottom_lip_mm)
                     pocket_depth_cm = pocket_depth_mm * 0.1
                     
-                    # Top Bearing Seat Pocket Cut
                     top_plane = cls.get_z_plane(target_component, z_off_cm + face_width_cm)
                     top_sketch = sketches.add(top_plane)
                     top_sketch.sketchCurves.sketchCircles.addByCenterRadius(
@@ -379,7 +377,7 @@ class GearBuilder:
         name: str = "Ring_Gear_Housing"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds lightweight Ring Gear Housing with 4 corner bolt lugs (kulaklar) saving material.
+        Builds lightweight Ring Gear Housing with 100% solid 4-corner bolt lugs (kulaklar).
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -403,38 +401,16 @@ class GearBuilder:
             z_ring=z_ring, module=module, motor_code=motor_code
         )
         
-        # 2. Base Lightweight Lugged Housing Tube Sketch
-        tube_sketch = sketches.add(xy_plane)
-        tube_sketch.name = f"{name}_Tube_Sketch"
-        tube_sketch.isComputeDeferred = True
-
-        cad.housing_builder.HousingBuilder.draw_lugged_housing_profile(
-            sketch=tube_sketch,
+        # 2. Base Solid Lugged Housing Body
+        ring_body = cad.housing_builder.HousingBuilder.build_solid_lugged_body(
+            target_component=target_component,
+            sketch_plane=xy_plane,
+            inner_dia_r_cm=tip_r_cm,
             wall_r_cm=wall_r_cm,
             bolt_positions=bolt_positions,
-            inner_dia_r_cm=tip_r_cm,
-            motor_code=motor_code
+            height_cm=face_width_cm,
+            name=name
         )
-
-        tube_sketch.isComputeDeferred = False
-
-        # Find donut tube profile
-        prof = None
-        for p in tube_sketch.profiles:
-            if p.profileLoops.count >= 2:
-                prof = p
-                break
-        if not prof:
-            prof = tube_sketch.profiles.item(0)
-
-        # Extrude Base Housing Tube
-        extrudes = features.extrudeFeatures
-        ext_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        dist = adsk.core.ValueInput.createByReal(face_width_cm)
-        ext_input.setDistanceExtent(False, dist)
-        tube_extrude = extrudes.add(ext_input)
-        ring_body = tube_extrude.bodies.item(0)
-        ring_body.name = name
 
         # 3. Single Tooth Space Cut Sketch
         space_sketch = sketches.add(xy_plane)
@@ -464,9 +440,10 @@ class GearBuilder:
         space_sketch.isComputeDeferred = False
 
         # 4. Extrude Single Tooth Space Cut
+        extrudes = features.extrudeFeatures
         space_prof = space_sketch.profiles.item(0)
         cut_input = extrudes.createInput(space_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
-        cut_input.setDistanceExtent(False, dist)
+        cut_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(face_width_cm))
         cut_input.participantBodies = [ring_body]
         cut_extrude = extrudes.add(cut_input)
 

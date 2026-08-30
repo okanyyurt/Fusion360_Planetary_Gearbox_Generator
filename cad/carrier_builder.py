@@ -1,6 +1,6 @@
 """
 Fusion 360 Planet Carrier Builder.
-Creates high-strength Tri-Star / Spider carrier assemblies, axle pins with spacer steps & circlip grooves,
+Creates high-strength Tri-Star / Spider carrier assemblies, axle pins with spacer steps & DIN 471 circlip grooves,
 inter-stage sun driver shafts, and extended D-cut output shafts.
 """
 import math
@@ -43,8 +43,8 @@ class CarrierBuilder:
         name: str = "Planet_Carrier"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Constructs a Tri-Star / Spider carrier with axle pins, bearing spacer steps, circlip grooves,
-        inter-stage coupling shaft (intermediate stages) or main output shaft (final stage).
+        Constructs a Tri-Star / Spider carrier with axle pins, bearing spacer steps,
+        DIN 471 precision external circlip grooves, and output/driver shafts.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -61,7 +61,7 @@ class CarrierBuilder:
         # Construction Plane right on top of the planet gears
         carrier_plane = cls.get_z_plane(target_component, z_spider_plane_cm)
 
-        # 1. Base Center Hub (Disk on carrier_plane, extruded upwards by plate_thick_cm)
+        # 1. Base Center Hub
         hub_sketch = sketches.add(carrier_plane)
         hub_sketch.name = f"{name}_Hub_Sketch"
         hub_sketch.sketchCurves.sketchCircles.addByCenterRadius(
@@ -74,7 +74,7 @@ class CarrierBuilder:
         carrier_body = hub_extrude.bodies.item(0)
         carrier_body.name = name
 
-        # 2. Build Spider Arms and Planet Bosses (Join to carrier_body)
+        # 2. Build Spider Arms and Planet Bosses
         for i in range(num_planets):
             angle = (2.0 * math.pi * i) / num_planets
             px = cd_cm * math.cos(angle)
@@ -107,20 +107,24 @@ class CarrierBuilder:
 
             arm_sketch.isComputeDeferred = False
 
-            # Extrude Arm + Boss upwards by plate_thick_cm
+            # Extrude Arm + Boss upwards
             for prof in arm_sketch.profiles:
                 arm_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
                 arm_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(plate_thick_cm))
                 arm_input.participantBodies = [carrier_body]
                 extrudes.add(arm_input)
 
-        # 3. Planet Axle Pins, Spacer Steps & Circlip / Segman Grooves
+        # 3. Planet Axle Pins, Spacer Steps & DIN 471 External Circlip Grooves
+        groove_d2_mm = max(1.0, pin_dia_mm - 0.4)  # d2 groove diameter as per DIN 471
+        groove_d2_r_cm = (groove_d2_mm / 2.0) * 0.1
+        groove_w_cm = 0.09  # 0.9mm groove width (m)
+
         for i in range(num_planets):
             angle = (2.0 * math.pi * i) / num_planets
             px = cd_cm * math.cos(angle)
             py = cd_cm * math.sin(angle)
 
-            # A. Axle Pin (Extends DOWNWARDS through planet bearing and bottom stop lip)
+            # A. Axle Pin (Extends DOWNWARDS past the bottom of the planet gear)
             pin_sketch = sketches.add(carrier_plane)
             pin_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(px, py, 0), pin_r_cm
@@ -128,7 +132,7 @@ class CarrierBuilder:
             pin_prof = pin_sketch.profiles.item(0)
 
             pin_input = extrudes.createInput(pin_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            pin_total_len_cm = -(gear_w_cm + 0.15)
+            pin_total_len_cm = -(gear_w_cm + 0.25)  # 2.5mm extra length below planet gear
             pin_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(pin_total_len_cm))
             pin_input.participantBodies = [carrier_body]
             extrudes.add(pin_input)
@@ -147,27 +151,33 @@ class CarrierBuilder:
             except Exception:
                 pass
 
-            # C. DIN 6799 Circlip / Segman Groove near lower pin tip
+            # C. DIN 471 Precision External Circlip Groove (Direct Cut into the pin)
             try:
-                groove_plane = cls.get_z_plane(target_component, (z_base_mm - 0.5) * 0.1)
+                groove_z_mm = z_base_mm - 0.5  # 0.5mm below planet gear bottom
+                groove_plane = cls.get_z_plane(target_component, groove_z_mm * 0.1)
                 groove_sketch = sketches.add(groove_plane)
-                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.05
-                )
-                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(px, py, 0), max(pin_r_cm - 0.04, 0.08)
-                )
+                groove_sketch.name = f"{name}_DIN471_Groove_Sketch_{i + 1}"
                 
-                groove_prof = None
+                # Outer clearing circle and inner d2 groove circle
+                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.15
+                )
+                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(px, py, 0), groove_d2_r_cm
+                )
+
+                donut_prof = None
                 for p in groove_sketch.profiles:
                     if p.profileLoops.count == 2:
-                        groove_prof = p
+                        donut_prof = p
                         break
-                if groove_prof:
-                    g_input = extrudes.createInput(groove_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                    g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-0.06))  # 0.6mm groove width
-                    g_input.participantBodies = [carrier_body]
-                    extrudes.add(g_input)
+                if not donut_prof:
+                    donut_prof = groove_sketch.profiles.item(0)
+
+                g_input = extrudes.createInput(donut_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-groove_w_cm))
+                g_input.participantBodies = [carrier_body]
+                extrudes.add(g_input)
             except Exception:
                 pass
 
