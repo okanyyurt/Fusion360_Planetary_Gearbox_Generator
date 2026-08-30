@@ -164,7 +164,7 @@ class PlanetaryAssemblyManager:
             is_final_stage = (stage_idx == num_stages - 1)
             
             sun_bore = motor_shaft_dia if is_first_stage else 6.0
-            sun_bore_type = motor_shaft_type if is_first_stage else "ROUND"
+            sun_bore_type = motor_shaft_type if is_first_stage else "D_CUT"
             
             # A. Build Sun Gear Component (at center 0, 0, z_current_offset)
             sun_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
@@ -183,9 +183,10 @@ class PlanetaryAssemblyManager:
                 helix_angle_deg=helix_angle,
                 bore_dia_mm=sun_bore,
                 bore_type=sun_bore_type,
+                min_rim_thickness_mm=2.0,
                 pressure_angle_deg=pressure_angle,
                 backlash_mm=backlash,
-                is_sun_gear=is_first_stage,
+                is_sun_gear=True,
                 name=f"Sun_Gear_Stg{stage_idx + 1}"
             )
             if sun_body:
@@ -193,9 +194,7 @@ class PlanetaryAssemblyManager:
                 
             # B. Build Planet Gears directly positioned at (px, py, z_current_offset)
             root_planet_r = (module * zp / 2.0) - 1.25 * module
-            safe_planet_bore = min(bearing_info["d_outer"], (root_planet_r * 2.0) - 2.0)
-            if safe_planet_bore < 3.0:
-                safe_planet_bore = pin_dia
+            safe_planet_bore = min(bearing_info["d_inner"], pin_dia)
                 
             for p_idx in range(np_planets):
                 planet_angle = (2.0 * math.pi * p_idx) / np_planets
@@ -218,6 +217,9 @@ class PlanetaryAssemblyManager:
                     helix_angle_deg=helix_angle,
                     bore_dia_mm=safe_planet_bore,
                     bore_type="ROUND",
+                    min_rim_thickness_mm=2.0,
+                    bearing_outer_dia_mm=bearing_info["d_outer"],
+                    bearing_width_mm=bearing_info["width"],
                     pressure_angle_deg=pressure_angle,
                     backlash_mm=backlash,
                     is_sun_gear=False,

@@ -1,7 +1,7 @@
 """
 Fusion 360 Planet Carrier Builder.
-Creates high-strength Tri-Star / Spider carrier assemblies, axle pins,
-and extended D-cut output shafts positioned on exact Z Construction Planes.
+Creates high-strength Tri-Star / Spider carrier assemblies, axle pins with circlip/segman grooves,
+inter-stage sun driver shafts, and extended D-cut output shafts.
 """
 import math
 from typing import List, Tuple, Optional
@@ -43,9 +43,8 @@ class CarrierBuilder:
         name: str = "Planet_Carrier"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Constructs a Tri-Star / Spider carrier with axle pins and output shaft.
-        Spider plate sits on top of planet gears (Z = z_base + gear_face_width).
-        Pins extend downwards into planet bores. Output shaft extends upwards.
+        Constructs a Tri-Star / Spider carrier with axle pins, circlip grooves,
+        inter-stage coupling shaft (intermediate stages) or main output shaft (final stage).
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -115,12 +114,13 @@ class CarrierBuilder:
                 arm_input.participantBodies = [carrier_body]
                 extrudes.add(arm_input)
 
-        # 3. Planet Axle Pins (Extends DOWNWARDS from carrier_plane into planet gear bores)
+        # 3. Planet Axle Pins & Circlip / Segman Grooves
         for i in range(num_planets):
             angle = (2.0 * math.pi * i) / num_planets
             px = cd_cm * math.cos(angle)
             py = cd_cm * math.sin(angle)
 
+            # A. Axle Pin (Extends DOWNWARDS from carrier_plane into planet gear bores)
             pin_sketch = sketches.add(carrier_plane)
             pin_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(px, py, 0), pin_r_cm
@@ -128,39 +128,89 @@ class CarrierBuilder:
             pin_prof = pin_sketch.profiles.item(0)
 
             pin_input = extrudes.createInput(pin_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            pin_dist = adsk.core.ValueInput.createByReal(-gear_w_cm)
-            pin_input.setDistanceExtent(False, pin_dist)
+            pin_total_len_cm = -(gear_w_cm + 0.15)
+            pin_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(pin_total_len_cm))
             pin_input.participantBodies = [carrier_body]
             extrudes.add(pin_input)
 
-        # 4. Output Shaft (Extends UPWARDS from top of spider plate)
-        if is_final_output_stage and output_shaft_dia_mm > 0.0:
-            top_plane = cls.get_z_plane(target_component, z_spider_plane_cm + plate_thick_cm)
-            shaft_sketch = sketches.add(top_plane)
-            shaft_r_cm = (output_shaft_dia_mm / 2.0) * 0.1
-            d_flat_depth_mm = 0.6
-            d_flat_cm = d_flat_depth_mm * 0.1
-            y_flat = shaft_r_cm - d_flat_cm
-
-            if y_flat < shaft_r_cm and y_flat > -shaft_r_cm:
-                x_half = math.sqrt(max(0.0001, shaft_r_cm**2 - y_flat**2))
-                p1 = adsk.core.Point3D.create(-x_half, y_flat, 0)
-                p2 = adsk.core.Point3D.create(x_half, y_flat, 0)
-                shaft_sketch.sketchCurves.sketchLines.addByTwoPoints(p1, p2)
-                
-                p_bottom = adsk.core.Point3D.create(0, -shaft_r_cm, 0)
-                shaft_sketch.sketchCurves.sketchArcs.addByThreePoints(p2, p_bottom, p1)
-            else:
-                shaft_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(0, 0, 0), shaft_r_cm
+            # B. DIN 6799 Circlip / Segman Groove near lower pin tip
+            try:
+                groove_plane = cls.get_z_plane(target_component, (z_base_mm - 0.8) * 0.1)
+                groove_sketch = sketches.add(groove_plane)
+                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(px, py, 0), pin_r_cm + 0.05
                 )
+                groove_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(px, py, 0), max(pin_r_cm - 0.04, 0.08)
+                )
+                
+                groove_prof = None
+                for p in groove_sketch.profiles:
+                    if p.profileLoops.count == 2:
+                        groove_prof = p
+                        break
+                if groove_prof:
+                    g_input = extrudes.createInput(groove_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                    g_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-0.06))  # 0.6mm groove width
+                    g_input.participantBodies = [carrier_body]
+                    extrudes.add(g_input)
+            except Exception:
+                pass
 
-            shaft_prof = shaft_sketch.profiles.item(0)
-            shaft_input = extrudes.createInput(shaft_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            shaft_len_cm = (output_shaft_length_mm * 0.1)
-            shaft_dist = adsk.core.ValueInput.createByReal(shaft_len_cm)
-            shaft_input.setDistanceExtent(False, shaft_dist)
-            shaft_input.participantBodies = [carrier_body]
-            extrudes.add(shaft_input)
+        # 4. Shaft Generation: Main Output Shaft vs Inter-Stage Driver Shaft
+        top_plane = cls.get_z_plane(target_component, z_spider_plane_cm + plate_thick_cm)
+        
+        if is_final_output_stage:
+            # Main Final Output Shaft (Ø8mm with D-cut, extends through top cover)
+            if output_shaft_dia_mm > 0.0:
+                shaft_sketch = sketches.add(top_plane)
+                shaft_r_cm = (output_shaft_dia_mm / 2.0) * 0.1
+                d_flat_depth_mm = 0.6
+                d_flat_cm = d_flat_depth_mm * 0.1
+                y_flat = shaft_r_cm - d_flat_cm
+
+                if y_flat < shaft_r_cm and y_flat > -shaft_r_cm:
+                    x_half = math.sqrt(max(0.0001, shaft_r_cm**2 - y_flat**2))
+                    p1 = adsk.core.Point3D.create(-x_half, y_flat, 0)
+                    p2 = adsk.core.Point3D.create(x_half, y_flat, 0)
+                    shaft_sketch.sketchCurves.sketchLines.addByTwoPoints(p1, p2)
+                    
+                    p_bottom = adsk.core.Point3D.create(0, -shaft_r_cm, 0)
+                    shaft_sketch.sketchCurves.sketchArcs.addByThreePoints(p2, p_bottom, p1)
+                else:
+                    shaft_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                        adsk.core.Point3D.create(0, 0, 0), shaft_r_cm
+                    )
+
+                shaft_prof = shaft_sketch.profiles.item(0)
+                shaft_input = extrudes.createInput(shaft_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                shaft_len_cm = (output_shaft_length_mm * 0.1)
+                shaft_dist = adsk.core.ValueInput.createByReal(shaft_len_cm)
+                shaft_input.setDistanceExtent(False, shaft_dist)
+                shaft_input.participantBodies = [carrier_body]
+                extrudes.add(shaft_input)
+
+        else:
+            # Inter-Stage Driver Shaft (Ø6mm D-shaft, length = 8mm, driving Stage 2/3 Sun Gear)
+            inter_shaft_dia_mm = 6.0
+            inter_shaft_r_cm = (inter_shaft_dia_mm / 2.0) * 0.1
+            inter_sketch = sketches.add(top_plane)
+            inter_sketch.name = f"{name}_InterStage_Shaft_Sketch"
+            
+            d_flat_cm = 0.5 * 0.1
+            y_flat = inter_shaft_r_cm - d_flat_cm
+            x_half = math.sqrt(max(0.0001, inter_shaft_r_cm**2 - y_flat**2))
+            p1 = adsk.core.Point3D.create(-x_half, y_flat, 0)
+            p2 = adsk.core.Point3D.create(x_half, y_flat, 0)
+            inter_sketch.sketchCurves.sketchLines.addByTwoPoints(p1, p2)
+            p_bottom = adsk.core.Point3D.create(0, -inter_shaft_r_cm, 0)
+            inter_sketch.sketchCurves.sketchArcs.addByThreePoints(p2, p_bottom, p1)
+
+            inter_prof = inter_sketch.profiles.item(0)
+            inter_input = extrudes.createInput(inter_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            inter_dist = adsk.core.ValueInput.createByReal(8.0 * 0.1)  # 8mm inter-stage coupling length
+            inter_input.setDistanceExtent(False, inter_dist)
+            inter_input.participantBodies = [carrier_body]
+            extrudes.add(inter_input)
 
         return carrier_body

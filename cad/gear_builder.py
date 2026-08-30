@@ -1,7 +1,7 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
-Constructs Sun Gear, Planet Gears, and Internal Ring Gear Enclosure using high-speed
-native Autodesk feature operations (Spur and Herringbone / Double Helical) on exact Z Construction Planes.
+Constructs Sun Gear, Planet Gears with internal bearing stop shoulders (fatura),
+and Internal Ring Gear Enclosure using high-speed native Autodesk feature operations on exact Z Construction Planes.
 """
 import math
 from typing import List, Tuple, Optional
@@ -93,6 +93,9 @@ class GearBuilder:
         bore_dia_mm: float = 5.0,
         bore_type: str = "ROUND",
         d_flat_depth_mm: float = 0.5,
+        min_rim_thickness_mm: float = 2.0,
+        bearing_outer_dia_mm: float = 8.0,
+        bearing_width_mm: float = 2.5,
         pressure_angle_deg: float = 20.0,
         backlash_mm: float = 0.05,
         is_sun_gear: bool = False,
@@ -100,6 +103,7 @@ class GearBuilder:
     ) -> Optional['adsk.fusion.BRepBody']:
         """
         Builds external gear body (Spur or Herringbone) positioned at (center_x, center_y) on Z plane.
+        Includes internal stop shoulder (fatura) for planet bearings.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -126,8 +130,9 @@ class GearBuilder:
         spline1_pts = geom['spline1_pts']
         spline2_pts = geom['spline2_pts']
 
-        # Safe bore check
-        safe_bore_dia = min(bore_dia_mm, (root_r_cm * 20.0) - 1.5)
+        # Safe bore check with 3D print minimum rim thickness
+        max_allowed_bore = max(1.0, (root_r_cm * 20.0) - (2.0 * min_rim_thickness_mm))
+        safe_bore_dia = min(bore_dia_mm, max_allowed_bore)
 
         # 2. Base Cylinder Sketch at (cx, cy) on sketch_plane
         base_sketch = sketches.add(sketch_plane)
@@ -243,9 +248,6 @@ class GearBuilder:
                 path_line2 = path_sketch2.sketchCurves.sketchLines.addByTwoPoints(line_p3, line_p4)
                 path2 = features.sweepFeatures.createPath(path_line2)
 
-                # Find profile at middle plane
-                mid_plane = cls.get_z_plane(target_component, z_off_cm + half_w_cm)
-                # Sweep upper half
                 sweep_input2 = features.sweepFeatures.createInput(tooth_prof, path2, adsk.fusion.FeatureOperations.JoinFeatureOperation)
                 sweep_input2.twistAngle = adsk.core.ValueInput.createByReal(-twist_rad)
                 sweep_input2.participantBodies = [base_body]
@@ -284,7 +286,37 @@ class GearBuilder:
         pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
         circular_patterns.add(pattern_input)
 
-        # 6. If Sun gear, add integral motor shaft clamping collar below
+        # 6. If Planet Gear, add bearing stop shoulder (fatura)
+        if not is_sun_gear and bearing_outer_dia_mm > safe_bore_dia:
+            try:
+                pocket_r_cm = (bearing_outer_dia_mm / 2.0) * 0.1
+                pocket_depth_cm = min(bearing_width_mm, (face_width_mm - 1.5) / 2.0) * 0.1
+                
+                # Top bearing pocket cut
+                top_pocket_sketch = sketches.add(cls.get_z_plane(target_component, z_off_cm + face_width_cm))
+                top_pocket_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(cx_cm, cy_cm, 0), pocket_r_cm
+                )
+                tp_prof = top_pocket_sketch.profiles.item(0)
+                tp_input = extrudes.createInput(tp_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                tp_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-pocket_depth_cm))
+                tp_input.participantBodies = [base_body]
+                extrudes.add(tp_input)
+
+                # Bottom bearing pocket cut
+                bot_pocket_sketch = sketches.add(sketch_plane)
+                bot_pocket_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(cx_cm, cy_cm, 0), pocket_r_cm
+                )
+                bp_prof = bot_pocket_sketch.profiles.item(0)
+                bp_input = extrudes.createInput(bp_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                bp_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(pocket_depth_cm))
+                bp_input.participantBodies = [base_body]
+                extrudes.add(bp_input)
+            except Exception:
+                pass
+
+        # 7. If Sun gear, add integral motor shaft clamping collar below
         if is_sun_gear and safe_bore_dia > 0:
             collar_dia_mm = max(safe_bore_dia + 6.0, 11.0)
             collar_len_mm = 6.0
