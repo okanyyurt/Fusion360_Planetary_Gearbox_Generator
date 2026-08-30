@@ -29,6 +29,7 @@ class HousingBuilder:
     ) -> Optional['adsk.fusion.BRepBody']:
         """
         Creates NEMA motor adapter plate with pilot recess, 4 motor bolt holes, and 4 corner tie-rod holes.
+        Extruded downwards from Z = 0 to Z = -plate_thickness.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -36,7 +37,6 @@ class HousingBuilder:
 
         motor = get_motor_info(motor_code)
         plate_thick_cm = plate_thickness_mm * 0.1
-        pilot_r_cm = (motor["pilot_diameter"] / 2.0) * 0.1
         motor_bolt_pcd_cm = (motor["bolt_pitch_circle"] / 2.0) * 0.1
         motor_bolt_r_cm = (motor["bolt_hole_dia"] / 2.0) * 0.1
 
@@ -117,11 +117,13 @@ class HousingBuilder:
         housing_outer_dia_mm: float,
         bearing_outer_dia_mm: float = 16.0,
         output_shaft_dia_mm: float = 8.0,
+        z_offset_mm: float = 0.0,
         plate_thickness_mm: float = 5.0,
         name: str = "Top_Bearing_Cover"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
         Creates the top housing cap with precision bearing seat pocket for the output shaft.
+        Extruded at Z = z_offset_mm with height plate_thickness_mm.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -129,7 +131,7 @@ class HousingBuilder:
 
         plate_thick_cm = plate_thickness_mm * 0.1
         shaft_hole_r_cm = (output_shaft_dia_mm / 2.0 + 0.5) * 0.1
-        bearing_pocket_r_cm = (bearing_outer_dia_mm / 2.0) * 0.1
+        actual_housing_r = (housing_outer_dia_mm / 2.0) * 0.1
 
         cover_sketch = sketches.add(xy_plane)
         cover_sketch.name = f"{name}_Sketch"
@@ -138,7 +140,7 @@ class HousingBuilder:
         lines = cover_sketch.sketchCurves.sketchLines
         circles = cover_sketch.sketchCurves.sketchCircles
 
-        if "NEMA17" in motor_code.upper():
+        if "NEMA17" in motor_code.upper() and housing_outer_dia_mm <= 45.0:
             sq_w = 42.3 * 0.1
             half_sq = sq_w / 2.0
             half_hp = (31.0 / 2.0) * 0.1
@@ -161,8 +163,7 @@ class HousingBuilder:
                     circles.addByCenterRadius(adsk.core.Point3D.create(hx, hy, 0), tie_r)
 
         else:
-            outer_r_cm = (housing_outer_dia_mm / 2.0) * 0.1
-            circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), outer_r_cm)
+            circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), actual_housing_r)
             circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), shaft_hole_r_cm)
 
         cover_sketch.isComputeDeferred = False
@@ -180,6 +181,8 @@ class HousingBuilder:
 
         extrudes = features.extrudeFeatures
         ext_input = extrudes.createInput(target_prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        if abs(z_offset_mm) > 0.0001:
+            ext_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_offset_mm * 0.1))
         dist = adsk.core.ValueInput.createByReal(plate_thick_cm)
         ext_input.setDistanceExtent(False, dist)
         cover_extrude = extrudes.add(ext_input)

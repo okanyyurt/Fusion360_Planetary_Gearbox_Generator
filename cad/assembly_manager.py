@@ -1,7 +1,7 @@
 """
 Fusion 360 Planetary Gearbox Assembly Manager.
 Coordinates multi-stage hierarchy, dedicated component occurrences for every moving gear,
-spider carriers, housing enclosures, and top output bearing caps.
+spider carriers, housing enclosures, and top output bearing caps with direct spatial geometry.
 """
 import math
 from typing import Dict, List, Optional
@@ -105,7 +105,7 @@ class PlanetaryAssemblyManager:
         z_ring = int(first_stage.get("z_ring", 48))
         d_ring_pitch = module * z_ring
         housing_outer_dia = d_ring_pitch + (module * 6.0) + 8.0
-        total_gearbox_length = num_stages * (face_width + 6.0) + 2.0
+        total_gearbox_length = num_stages * (face_width + 6.0) + 4.0
 
         # 2. Build Motor Flange Adapter (Base Component at Z = 0)
         cls._send_progress(palette, "🔧 2/5: Motor montaj flanşı üretiliyor...", 25)
@@ -123,7 +123,7 @@ class PlanetaryAssemblyManager:
         if flange_body:
             cls.apply_appearance(flange_body, "Aluminum")
 
-        # 3. Build Outer Ring Gear Housing Enclosure (Component at Z = 0)
+        # 3. Build Outer Ring Gear Housing Enclosure (Component from Z = 0 to total_gearbox_length)
         cls._send_progress(palette, "🛡️ 3/5: Çember dişli gövdesi oluşturuluyor...", 45)
         if config.get("generate_housing", True):
             ring_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
@@ -145,14 +145,12 @@ class PlanetaryAssemblyManager:
                 cls.apply_appearance(ring_body, "Steel")
 
         # 4. Build Each Gearbox Stage
-        z_current_offset = 3.0  # mm offset from motor mount plate
+        z_current_offset = 2.0  # mm offset above motor mount plate
         
         for stage_idx, stage in enumerate(stages_data):
             cls._send_progress(palette, f"⚡ 4/5: Kademe {stage_idx + 1} dişlileri ve taşıyıcı çiziliyor...", 60 + stage_idx * 15)
             
-            stage_mat = adsk.core.Matrix3D.create()
-            stage_mat.setCell(2, 3, z_current_offset * 0.1)
-            stage_occ = master_comp.occurrences.addNewComponent(stage_mat)
+            stage_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
             stage_comp = stage_occ.component
             stage_comp.name = f"Stage_{stage_idx + 1}"
             
@@ -168,7 +166,7 @@ class PlanetaryAssemblyManager:
             sun_bore = motor_shaft_dia if is_first_stage else 6.0
             sun_bore_type = motor_shaft_type if is_first_stage else "ROUND"
             
-            # A. Build Sun Gear Component
+            # A. Build Sun Gear Component (at center 0, 0, z_current_offset)
             sun_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
             sun_comp = sun_occ.component
             sun_comp.name = f"Sun_Gear_Stg{stage_idx + 1}"
@@ -178,6 +176,9 @@ class PlanetaryAssemblyManager:
                 z_teeth=zs,
                 module=module,
                 face_width_mm=face_width,
+                center_x_mm=0.0,
+                center_y_mm=0.0,
+                z_offset_mm=z_current_offset,
                 is_herringbone=is_herringbone,
                 helix_angle_deg=helix_angle,
                 bore_dia_mm=sun_bore,
@@ -190,7 +191,7 @@ class PlanetaryAssemblyManager:
             if sun_body:
                 cls.apply_appearance(sun_body, "Brass")
                 
-            # B. Build Planet Gears as Individual Components (x N)
+            # B. Build Planet Gears directly positioned at (px, py, z_current_offset)
             root_planet_r = (module * zp / 2.0) - 1.25 * module
             safe_planet_bore = min(bearing_info["d_outer"], (root_planet_r * 2.0) - 2.0)
             if safe_planet_bore < 3.0:
@@ -198,14 +199,10 @@ class PlanetaryAssemblyManager:
                 
             for p_idx in range(np_planets):
                 planet_angle = (2.0 * math.pi * p_idx) / np_planets
-                px_cm = (cd_mm * math.cos(planet_angle)) * 0.1
-                py_cm = (cd_mm * math.sin(planet_angle)) * 0.1
+                px_mm = cd_mm * math.cos(planet_angle)
+                py_mm = cd_mm * math.sin(planet_angle)
                 
-                planet_mat = adsk.core.Matrix3D.create()
-                planet_mat.setCell(0, 3, px_cm)
-                planet_mat.setCell(1, 3, py_cm)
-                
-                planet_occ = stage_comp.occurrences.addNewComponent(planet_mat)
+                planet_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
                 planet_comp = planet_occ.component
                 planet_comp.name = f"Planet_{stage_idx + 1}_{p_idx + 1}"
                 
@@ -214,6 +211,9 @@ class PlanetaryAssemblyManager:
                     z_teeth=zp,
                     module=module,
                     face_width_mm=face_width,
+                    center_x_mm=px_mm,
+                    center_y_mm=py_mm,
+                    z_offset_mm=z_current_offset,
                     is_herringbone=is_herringbone,
                     helix_angle_deg=helix_angle,
                     bore_dia_mm=safe_planet_bore,
@@ -225,12 +225,8 @@ class PlanetaryAssemblyManager:
                 )
                 if planet_body:
                     cls.apply_appearance(planet_body, "Steel")
-                # Move Planet occurrence to its pitch circle position (px, py)
-                p_trans = planet_occ.transform
-                p_trans.translation = adsk.core.Vector3D.create(px_cm, py_cm, 0.0)
-                planet_occ.transform = p_trans
                 
-            # C. Build Spider Planet Carrier Component
+            # C. Build Spider Planet Carrier Component (Sitting on top of planet gears)
             carrier_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
             carrier_comp = carrier_occ.component
             carrier_comp.name = f"Carrier_Stg{stage_idx + 1}"
@@ -241,6 +237,7 @@ class PlanetaryAssemblyManager:
                 num_planets=np_planets,
                 pin_dia_mm=pin_dia,
                 gear_face_width_mm=face_width,
+                z_base_mm=z_current_offset,
                 plate_thickness_mm=4.0,
                 output_shaft_dia_mm=output_shaft_dia if is_final_stage else 6.0,
                 output_shaft_length_mm=output_shaft_len if is_final_stage else 6.0,
@@ -250,14 +247,9 @@ class PlanetaryAssemblyManager:
             if carrier_body:
                 cls.apply_appearance(carrier_body, "Aluminum")
             
-            # Position stage along Z axis
-            s_trans = stage_occ.transform
-            s_trans.translation = adsk.core.Vector3D.create(0.0, 0.0, z_current_offset * 0.1)
-            stage_occ.transform = s_trans
-            
             z_current_offset += face_width + 5.0
 
-        # 5. Build Top Output Bearing Cover Cap (Component at Z = total_gearbox_length)
+        # 5. Build Top Output Bearing Cover Cap (Positioned directly at Z = total_gearbox_length)
         cls._send_progress(palette, "🎯 5/5: Üst rulman kapağı ekleniyor...", 95)
         cover_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
         cover_comp = cover_occ.component
@@ -269,16 +261,12 @@ class PlanetaryAssemblyManager:
             housing_outer_dia_mm=housing_outer_dia,
             bearing_outer_dia_mm=16.0,
             output_shaft_dia_mm=output_shaft_dia,
+            z_offset_mm=total_gearbox_length,
             plate_thickness_mm=5.0,
             name="Top_Bearing_Cover"
         )
         if cover_body:
             cls.apply_appearance(cover_body, "Aluminum")
-
-        # Move Top Cover to top of gearbox housing
-        c_trans = cover_occ.transform
-        c_trans.translation = adsk.core.Vector3D.create(0.0, 0.0, total_gearbox_length * 0.1)
-        cover_occ.transform = c_trans
 
         cls._send_progress(palette, "✅ Redüktör Başarıyla Oluşturuldu!", 100)
         return True

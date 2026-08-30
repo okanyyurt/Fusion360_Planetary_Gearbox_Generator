@@ -1,7 +1,7 @@
 """
 Fusion 360 Planet Carrier Builder.
 Creates high-strength Tri-Star / Spider carrier assemblies, axle pins,
-and extended D-cut output shafts as dedicated CAD components.
+and extended D-cut output shafts positioned visibly on top of the planet gears.
 """
 import math
 from typing import List, Tuple, Optional
@@ -25,6 +25,7 @@ class CarrierBuilder:
         num_planets: int,
         pin_dia_mm: float,
         gear_face_width_mm: float,
+        z_base_mm: float = 2.0,
         plate_thickness_mm: float = 4.0,
         output_shaft_dia_mm: float = 8.0,
         output_shaft_length_mm: float = 20.0,
@@ -33,6 +34,8 @@ class CarrierBuilder:
     ) -> Optional['adsk.fusion.BRepBody']:
         """
         Constructs a Tri-Star / Spider carrier with axle pins and output shaft.
+        Spider plate sits on top of planet gears (Z = z_base + gear_face_width).
+        Pins extend downwards into planet bores. Output shaft extends upwards.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -44,9 +47,11 @@ class CarrierBuilder:
         boss_r_cm = (pin_dia_mm / 2.0 + 2.5) * 0.1
         plate_thick_cm = plate_thickness_mm * 0.1
         gear_w_cm = gear_face_width_mm * 0.1
+        z_base_cm = z_base_mm * 0.1
+        z_spider_top_cm = z_base_cm + gear_w_cm + plate_thick_cm
         hub_r_cm = max((output_shaft_dia_mm / 2.0 + 3.0) * 0.1, 0.8)
 
-        # 1. Base Center Hub (Disk from Z = -plate_thick to Z = 0)
+        # 1. Base Center Hub (Disk from Z = z_base + gear_w to Z = z_base + gear_w + plate_thick)
         hub_sketch = sketches.add(xy_plane)
         hub_sketch.name = f"{name}_Hub_Sketch"
         hub_sketch.sketchCurves.sketchCircles.addByCenterRadius(
@@ -54,8 +59,8 @@ class CarrierBuilder:
         )
         hub_prof = hub_sketch.profiles.item(0)
         hub_input = extrudes.createInput(hub_prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        hub_dist = adsk.core.ValueInput.createByReal(-plate_thick_cm)
-        hub_input.setDistanceExtent(False, hub_dist)
+        hub_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_base_cm + gear_w_cm))
+        hub_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(plate_thick_cm))
         hub_extrude = extrudes.add(hub_input)
         carrier_body = hub_extrude.bodies.item(0)
         carrier_body.name = name
@@ -93,14 +98,15 @@ class CarrierBuilder:
 
             arm_sketch.isComputeDeferred = False
 
-            # Extrude Arm + Boss downwards
+            # Extrude Arm + Boss
             for prof in arm_sketch.profiles:
                 arm_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-                arm_input.setDistanceExtent(False, hub_dist)
+                arm_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_base_cm + gear_w_cm))
+                arm_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(plate_thick_cm))
                 arm_input.participantBodies = [carrier_body]
                 extrudes.add(arm_input)
 
-        # 3. Planet Axle Pins (Extends upwards: Z = 0 to Z = gear_face_width + 1.0mm)
+        # 3. Planet Axle Pins (Extends DOWNWARDS from spider plate through planet gears: from z_spider_top down to z_base)
         for i in range(num_planets):
             angle = (2.0 * math.pi * i) / num_planets
             px = cd_cm * math.cos(angle)
@@ -113,12 +119,13 @@ class CarrierBuilder:
             pin_prof = pin_sketch.profiles.item(0)
 
             pin_input = extrudes.createInput(pin_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            pin_dist = adsk.core.ValueInput.createByReal(gear_w_cm + 0.1)
+            pin_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_spider_top_cm))
+            pin_dist = adsk.core.ValueInput.createByReal(-(gear_w_cm + plate_thick_cm))
             pin_input.setDistanceExtent(False, pin_dist)
             pin_input.participantBodies = [carrier_body]
             extrudes.add(pin_input)
 
-        # 4. Output Shaft (Extends upwards through top cover to the outside)
+        # 4. Output Shaft (Extends UPWARDS from spider top through top cover to the outside)
         if is_final_output_stage and output_shaft_dia_mm > 0.0:
             shaft_sketch = sketches.add(xy_plane)
             shaft_r_cm = (output_shaft_dia_mm / 2.0) * 0.1
@@ -141,9 +148,9 @@ class CarrierBuilder:
 
             shaft_prof = shaft_sketch.profiles.item(0)
             shaft_input = extrudes.createInput(shaft_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            # Total shaft length extends past the gears and past the top cover
-            total_shaft_cm = gear_w_cm + (output_shaft_length_mm * 0.1) + 0.5
-            shaft_dist = adsk.core.ValueInput.createByReal(total_shaft_cm)
+            shaft_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_spider_top_cm))
+            shaft_len_cm = (output_shaft_length_mm * 0.1) + 0.5
+            shaft_dist = adsk.core.ValueInput.createByReal(shaft_len_cm)
             shaft_input.setDistanceExtent(False, shaft_dist)
             shaft_input.participantBodies = [carrier_body]
             extrudes.add(shaft_input)
