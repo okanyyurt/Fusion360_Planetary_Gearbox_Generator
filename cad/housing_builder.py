@@ -1,6 +1,6 @@
 """
 Fusion 360 Gearbox Housing, Motor Flange & Top Bearing Cover Builder.
-Constructs NEMA motor adapter plates and top output bearing caps with bolt holes.
+Constructs NEMA motor adapter plates and top output bearing caps on exact Z Construction Planes.
 """
 import math
 from typing import Dict, Optional
@@ -17,6 +17,16 @@ class HousingBuilder:
     """
     Builds motor adapters and top bearing housing covers in Fusion 360.
     """
+
+    @staticmethod
+    def get_z_plane(target_component: 'adsk.fusion.Component', z_offset_cm: float):
+        """Returns or creates an XY construction plane at exact Z offset in cm."""
+        if abs(z_offset_cm) < 0.0001:
+            return target_component.xYConstructionPlane
+        planes = target_component.constructionPlanes
+        plane_input = planes.createInput()
+        plane_input.setByOffset(target_component.xYConstructionPlane, adsk.core.ValueInput.createByReal(z_offset_cm))
+        return planes.add(plane_input)
 
     @classmethod
     def build_motor_mount_plate(
@@ -122,18 +132,17 @@ class HousingBuilder:
         name: str = "Top_Bearing_Cover"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Creates the top housing cap with precision bearing seat pocket for the output shaft.
-        Extruded at Z = z_offset_mm with height plate_thickness_mm.
+        Creates the top housing cap on an exact Z offset plane with bearing seat pocket for output shaft.
         """
         features = target_component.features
         sketches = target_component.sketches
-        xy_plane = target_component.xYConstructionPlane
 
+        cover_plane = cls.get_z_plane(target_component, z_offset_mm * 0.1)
         plate_thick_cm = plate_thickness_mm * 0.1
         shaft_hole_r_cm = (output_shaft_dia_mm / 2.0 + 0.5) * 0.1
         actual_housing_r = (housing_outer_dia_mm / 2.0) * 0.1
 
-        cover_sketch = sketches.add(xy_plane)
+        cover_sketch = sketches.add(cover_plane)
         cover_sketch.name = f"{name}_Sketch"
         cover_sketch.isComputeDeferred = True
 
@@ -181,8 +190,6 @@ class HousingBuilder:
 
         extrudes = features.extrudeFeatures
         ext_input = extrudes.createInput(target_prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        if abs(z_offset_mm) > 0.0001:
-            ext_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_offset_mm * 0.1))
         dist = adsk.core.ValueInput.createByReal(plate_thick_cm)
         ext_input.setDistanceExtent(False, dist)
         cover_extrude = extrudes.add(ext_input)

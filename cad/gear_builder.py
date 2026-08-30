@@ -1,7 +1,7 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
 Constructs Sun Gear, Planet Gears, and Internal Ring Gear Enclosure using high-speed
-native Autodesk feature operations with direct spatial positioning (center_x, center_y, z_offset).
+native Autodesk feature operations on exact Z Construction Planes.
 """
 import math
 from typing import List, Tuple, Optional
@@ -18,6 +18,16 @@ class GearBuilder:
     """
     Builds native parametric 3D gear components in Autodesk Fusion 360.
     """
+
+    @staticmethod
+    def get_z_plane(target_component: 'adsk.fusion.Component', z_offset_cm: float):
+        """Returns or creates an XY construction plane at exact Z offset in cm."""
+        if abs(z_offset_cm) < 0.0001:
+            return target_component.xYConstructionPlane
+        planes = target_component.constructionPlanes
+        plane_input = planes.createInput()
+        plane_input.setByOffset(target_component.xYConstructionPlane, adsk.core.ValueInput.createByReal(z_offset_cm))
+        return planes.add(plane_input)
 
     @staticmethod
     def _notify_progress(message: str) -> None:
@@ -89,15 +99,17 @@ class GearBuilder:
         name: str = "Gear"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds external gear body directly positioned at (center_x, center_y, z_offset).
+        Builds external gear body directly positioned at (center_x, center_y) on Z construction plane.
         """
         features = target_component.features
         sketches = target_component.sketches
-        xy_plane = target_component.xYConstructionPlane
         face_width_cm = face_width_mm * 0.1
         cx_cm = center_x_mm * 0.1
         cy_cm = center_y_mm * 0.1
         z_off_cm = z_offset_mm * 0.1
+
+        # Use Offset Construction Plane at Z elevation
+        sketch_plane = cls.get_z_plane(target_component, z_off_cm)
 
         # 1. Compute Exact Involute Geometry
         geom = ToothProfileGenerator.get_external_tooth_features(
@@ -116,8 +128,8 @@ class GearBuilder:
         # Safe bore check
         safe_bore_dia = min(bore_dia_mm, (root_r_cm * 20.0) - 1.5)
 
-        # 2. Base Cylinder Sketch at (cx, cy)
-        base_sketch = sketches.add(xy_plane)
+        # 2. Base Cylinder Sketch at (cx, cy) on sketch_plane
+        base_sketch = sketches.add(sketch_plane)
         base_sketch.name = f"{name}_Base_Sketch"
         base_sketch.sketchCurves.sketchCircles.addByCenterRadius(
             adsk.core.Point3D.create(cx_cm, cy_cm, 0), root_r_cm
@@ -142,23 +154,17 @@ class GearBuilder:
         if not prof:
             prof = base_sketch.profiles.item(0)
 
-        # Extrude Base Cylinder with Z offset
+        # Extrude Base Cylinder upwards by face_width_cm
         extrudes = features.extrudeFeatures
         ext_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        
-        # Distance & Offset
         dist = adsk.core.ValueInput.createByReal(face_width_cm)
-        if abs(z_off_cm) > 0.0001:
-            offset_val = adsk.core.ValueInput.createByReal(z_off_cm)
-            ext_input.setOffsetExtent(False, offset_val)
         ext_input.setDistanceExtent(False, dist)
-        
         base_extrude = extrudes.add(ext_input)
         base_body = base_extrude.bodies.item(0)
         base_body.name = name
 
-        # 3. Single Tooth Profile Sketch offset by (cx, cy)
-        tooth_sketch = sketches.add(xy_plane)
+        # 3. Single Tooth Profile Sketch on sketch_plane
+        tooth_sketch = sketches.add(sketch_plane)
         tooth_sketch.name = f"{name}_Tooth_Sketch"
         tooth_sketch.isComputeDeferred = True
 
@@ -206,9 +212,6 @@ class GearBuilder:
         # 4. Extrude Single Tooth (Join to Base Body)
         tooth_prof = tooth_sketch.profiles.item(0)
         tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-        if abs(z_off_cm) > 0.0001:
-            offset_val = adsk.core.ValueInput.createByReal(z_off_cm)
-            tooth_ext_input.setOffsetExtent(False, offset_val)
         tooth_ext_input.setDistanceExtent(False, dist)
         tooth_ext_input.participantBodies = [base_body]
         tooth_extrude = extrudes.add(tooth_ext_input)
@@ -218,7 +221,6 @@ class GearBuilder:
         entities = adsk.core.ObjectCollection.create()
         entities.add(tooth_extrude)
 
-        # Find the cylindrical side face of the base cylinder
         cyl_face = None
         for face in base_extrude.sideFaces:
             if face.geometry.surfaceType == adsk.core.SurfaceTypes.CylinderSurfaceType:
@@ -236,7 +238,7 @@ class GearBuilder:
         if is_sun_gear and safe_bore_dia > 0:
             collar_dia_mm = max(safe_bore_dia + 6.0, 11.0)
             collar_len_mm = 6.0
-            collar_sketch = sketches.add(xy_plane)
+            collar_sketch = sketches.add(sketch_plane)
             collar_sketch.name = f"{name}_Collar_Sketch"
             collar_sketch.sketchCurves.sketchCircles.addByCenterRadius(
                 adsk.core.Point3D.create(0, 0, 0), (collar_dia_mm / 2.0) * 0.1
@@ -259,9 +261,6 @@ class GearBuilder:
                 collar_prof = collar_sketch.profiles.item(0)
                 
             c_input = extrudes.createInput(collar_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-            # Extrude downwards from z_off_cm down to z_off_cm - collar_len
-            if abs(z_off_cm) > 0.0001:
-                c_input.setOffsetExtent(False, adsk.core.ValueInput.createByReal(z_off_cm))
             c_dist = adsk.core.ValueInput.createByReal(-(collar_len_mm * 0.1))
             c_input.setDistanceExtent(False, c_dist)
             c_input.participantBodies = [base_body]
