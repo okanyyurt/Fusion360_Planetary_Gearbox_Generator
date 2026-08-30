@@ -92,7 +92,15 @@ let currentCandidates = [];
 let selectedCandidateIndex = 0;
 
 // ─── i18n Language Engine ─────────────────────────────────────────────────────
-let currentLang = localStorage.getItem('pgb_lang') || 'tr';
+// ─── i18n Language Engine ─────────────────────────────────────────────────────
+let currentLang = 'tr';
+try {
+  if (localStorage.getItem('pgb_lang')) {
+    currentLang = localStorage.getItem('pgb_lang');
+  }
+} catch (e) {
+  console.warn("localStorage not available in Fusion 360 file:// protocol, defaulting to TR");
+}
 
 function applyTranslations(lang) {
   if (!window.TRANSLATIONS || !window.TRANSLATIONS[lang]) return;
@@ -131,7 +139,9 @@ function applyTranslations(lang) {
   if (noCandidate && T.noCandidate) noCandidate.textContent = T.noCandidate;
 
   currentLang = lang;
-  localStorage.setItem('pgb_lang', lang);
+  try {
+    localStorage.setItem('pgb_lang', lang);
+  } catch (e) {}
 }
 
 function toggleLanguage() {
