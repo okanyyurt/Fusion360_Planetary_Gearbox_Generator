@@ -47,53 +47,59 @@ class ToothProfileGenerator:
         half_thick_angle_pitch = s_pitch / (2.0 * r_pitch)
         inv_alpha = inv(alpha)
         
-        # Build one single tooth centered on positive X-axis
-        single_tooth_pts: List[Point2D] = []
+        # Build one single tooth's right and left flanks relative to center (0 rad)
+        # Right flank is at negative angles. Left flank is at positive angles.
+        num_pts = num_involute_points_per_flank
+        radii = [r_involute_start + (r_tip - r_involute_start) * (i / (num_pts - 1)) for i in range(num_pts)]
         
-        # 1. Left Flank (from root up to tip)
-        left_flank: List[Point2D] = []
-        radii = [r_involute_start + (r_tip - r_involute_start) * (i / (num_involute_points_per_flank - 1)) 
-                 for i in range(num_involute_points_per_flank)]
-        
+        right_flank_polar: List[Point2D] = []
         for r_curr in radii:
             cos_phi = max(-1.0, min(1.0, r_base / r_curr))
             phi = math.acos(cos_phi)
-            inv_phi = inv(phi)
-            # Angular position for left flank (positive theta)
-            theta = half_thick_angle_pitch + inv_alpha - inv_phi
-            x = r_curr * math.cos(theta)
-            y = r_curr * math.sin(theta)
-            left_flank.append((x, y))
+            theta = half_thick_angle_pitch + inv_alpha - inv(phi)
+            right_flank_polar.append((r_curr, -theta))
             
-        # 2. Right Flank (from tip down to root - mirror of left)
-        right_flank: List[Point2D] = []
-        for x_l, y_l in reversed(left_flank):
-            right_flank.append((x_l, -y_l))
-            
-        # Combine one tooth profile:
-        # Start at root under left flank, go up left flank, tip arc, down right flank, root space
-        single_tooth_pts = left_flank + right_flank
+        left_flank_polar: List[Point2D] = []
+        # Reverse radii to go from tip down to root for the left flank
+        for r_curr in reversed(radii):
+            cos_phi = max(-1.0, min(1.0, r_base / r_curr))
+            phi = math.acos(cos_phi)
+            theta = half_thick_angle_pitch + inv_alpha - inv(phi)
+            left_flank_polar.append((r_curr, theta))
         
-        # Full gear outline by replicating the tooth Z times
+        # Build the full gear CCW
         pitch_angle = 2.0 * math.pi / z
         full_gear_points: List[Point2D] = []
         
         for k in range(z):
             rot = k * pitch_angle
-            cos_r = math.cos(rot)
-            sin_r = math.sin(rot)
             
-            # Root gap point before this tooth
-            theta_root_gap = rot - (pitch_angle / 2.0) + (half_thick_angle_pitch * 0.5)
-            x_root = r_root * math.cos(theta_root_gap)
-            y_root = r_root * math.sin(theta_root_gap)
-            full_gear_points.append((x_root, y_root))
+            # 1. Right root corner (only if root < base)
+            if r_root < r_involute_start:
+                t_right_root = rot + right_flank_polar[0][1]
+                full_gear_points.append((r_root * math.cos(t_right_root), r_root * math.sin(t_right_root)))
             
-            for px, py in single_tooth_pts:
-                # Rotate point
-                nx = px * cos_r - py * sin_r
-                ny = px * sin_r + py * cos_r
-                full_gear_points.append((nx, ny))
+            # 2. Right flank (from base up to tip)
+            for r, t in right_flank_polar:
+                t_global = rot + t
+                full_gear_points.append((r * math.cos(t_global), r * math.sin(t_global)))
+                
+            # 3. Tooth tip center (optional, for smoother tip interpolation)
+            full_gear_points.append((r_tip * math.cos(rot), r_tip * math.sin(rot)))
+                
+            # 4. Left flank (from tip down to base)
+            for r, t in left_flank_polar:
+                t_global = rot + t
+                full_gear_points.append((r * math.cos(t_global), r * math.sin(t_global)))
+                
+            # 5. Left root corner
+            if r_root < r_involute_start:
+                t_left_root = rot + left_flank_polar[-1][1]
+                full_gear_points.append((r_root * math.cos(t_left_root), r_root * math.sin(t_left_root)))
+                
+            # 6. Center of root gap between this tooth and the next tooth
+            t_gap_center = rot + pitch_angle / 2.0
+            full_gear_points.append((r_root * math.cos(t_gap_center), r_root * math.sin(t_gap_center)))
                 
         return full_gear_points
 
@@ -120,8 +126,9 @@ class ToothProfileGenerator:
         r_base = r_pitch * math.cos(alpha)
         r_tip_inner = r_pitch - 1.0 * m   # inner boundary of internal teeth
         r_root_outer = r_pitch + 1.25 * m # root where teeth meet housing wall
+        r_tip_inner = r_pitch - 1.0 * m
+        r_root_outer = r_pitch + 1.25 * m
         
-        # Space width on pitch circle (backlash widens internal space)
         e_pitch = (math.pi * m / 2.0) + backlash
         half_space_angle = e_pitch / (2.0 * r_pitch)
         inv_alpha = inv(alpha)
@@ -129,35 +136,39 @@ class ToothProfileGenerator:
         radii = [r_tip_inner + (r_root_outer - r_tip_inner) * (i / (num_involute_points_per_flank - 1)) 
                  for i in range(num_involute_points_per_flank)]
         
-        left_flank: List[Point2D] = []
-        for r_curr in radii:
-            # For internal gear, involute profile
-            r_effective_base = min(r_base, r_tip_inner)
+        solid_right_flank: List[Point2D] = []
+        for r_curr in reversed(radii):
             cos_phi = max(-1.0, min(1.0, r_base / max(r_base, r_curr)))
             phi = math.acos(cos_phi)
-            inv_phi = inv(phi)
-            theta = half_space_angle - (inv_phi - inv_alpha)
-            x = r_curr * math.cos(theta)
-            y = r_curr * math.sin(theta)
-            left_flank.append((x, y))
+            theta = half_space_angle - (inv(phi) - inv_alpha)
+            solid_right_flank.append((r_curr, theta))
             
-        right_flank: List[Point2D] = []
-        for x_l, y_l in reversed(left_flank):
-            right_flank.append((x_l, -y_l))
+        solid_left_flank: List[Point2D] = []
+        for r_curr in radii:
+            cos_phi = max(-1.0, min(1.0, r_base / max(r_base, r_curr)))
+            phi = math.acos(cos_phi)
+            theta = half_space_angle - (inv(phi) - inv_alpha)
+            solid_left_flank.append((r_curr, -theta))
             
         pitch_angle = 2.0 * math.pi / z
         inner_teeth_points: List[Point2D] = []
         
         for k in range(z):
             rot = k * pitch_angle
-            cos_r = math.cos(rot)
-            sin_r = math.sin(rot)
             
-            for px, py in left_flank + right_flank:
-                nx = px * cos_r - py * sin_r
-                ny = px * sin_r + py * cos_r
-                inner_teeth_points.append((nx, ny))
+            inner_teeth_points.append((r_root_outer * math.cos(rot), r_root_outer * math.sin(rot)))
+            
+            for r, t in solid_right_flank:
+                t_global = rot + t
+                inner_teeth_points.append((r * math.cos(t_global), r * math.sin(t_global)))
                 
+            t_tip_center = rot + pitch_angle / 2.0
+            inner_teeth_points.append((r_tip_inner * math.cos(t_tip_center), r_tip_inner * math.sin(t_tip_center)))
+                
+            for r, t in solid_left_flank:
+                t_global = (rot + pitch_angle) + t
+                inner_teeth_points.append((r * math.cos(t_global), r * math.sin(t_global)))
+        
         return inner_teeth_points, housing_outer_dia / 2.0
 
     @staticmethod
