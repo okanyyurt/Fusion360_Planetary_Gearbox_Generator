@@ -1,7 +1,7 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
-Constructs Sun Gear, Planet Gears with internal bearing stop shoulders (fatura),
-and Internal Ring Gear Enclosure using high-speed native Autodesk feature operations on exact Z Construction Planes.
+Constructs Sun Gear, Planet Gears, and Internal Ring Gear Enclosure using high-speed
+native Autodesk feature operations with 100% flush Z-heights for 3D printing and CNC.
 """
 import math
 from typing import List, Tuple, Optional
@@ -102,11 +102,11 @@ class GearBuilder:
         name: str = "Gear"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds external gear body (Spur or Herringbone) positioned at (center_x, center_y) on Z plane.
-        Includes internal stop shoulder (fatura) for planet bearings.
+        Builds external gear body (Spur or Herringbone) perfectly flush with base cylinder.
         """
         features = target_component.features
         sketches = target_component.sketches
+        extrudes = features.extrudeFeatures
         face_width_cm = face_width_mm * 0.1
         half_w_cm = face_width_cm / 2.0
         cx_cm = center_x_mm * 0.1
@@ -134,7 +134,7 @@ class GearBuilder:
         max_allowed_bore = max(1.0, (root_r_cm * 20.0) - (2.0 * min_rim_thickness_mm))
         safe_bore_dia = min(bore_dia_mm, max_allowed_bore)
 
-        # 2. Base Cylinder Sketch at (cx, cy) on sketch_plane
+        # 2. Base Cylinder Sketch on sketch_plane
         base_sketch = sketches.add(sketch_plane)
         base_sketch.name = f"{name}_Base_Sketch"
         base_sketch.sketchCurves.sketchCircles.addByCenterRadius(
@@ -161,7 +161,6 @@ class GearBuilder:
             prof = base_sketch.profiles.item(0)
 
         # Extrude Base Cylinder upwards by face_width_cm
-        extrudes = features.extrudeFeatures
         ext_input = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
         dist = adsk.core.ValueInput.createByReal(face_width_cm)
         ext_input.setDistanceExtent(False, dist)
@@ -184,7 +183,7 @@ class GearBuilder:
             p_coll2.add(adsk.core.Point3D.create(p[0] + cx_cm, p[1] + cy_cm, 0.0))
         spline2 = tooth_sketch.sketchCurves.sketchFittedSplines.add(p_coll2)
 
-        # Tooth Tip Line (Robust ISO/AGMA tooth tip land)
+        # Tooth Tip Line (Flat addendum land)
         tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(
             spline1.endSketchPoint, spline2.endSketchPoint
         )
@@ -214,54 +213,53 @@ class GearBuilder:
 
         tooth_sketch.isComputeDeferred = False
 
-        # 4. Form Tooth (Herringbone Sweep or Spur Extrude)
+        # 4. Form Tooth: Extrude with exact face_width height
         tooth_prof = tooth_sketch.profiles.item(0)
         tooth_features = []
 
         if is_herringbone and helix_angle_deg > 1.0:
             try:
-                # Calculate double-helical twist angle
                 twist_rad = ToothProfileGenerator.calculate_herringbone_twist_angle(
                     face_width=face_width_mm,
                     pitch_radius=pitch_r_cm * 10.0,
                     helix_angle_deg=helix_angle_deg
                 )
 
-                # Lower half path sketch (along Z axis)
-                xz_plane = target_component.xZConstructionPlane
-                path_sketch1 = sketches.add(xz_plane)
-                line_p1 = adsk.core.Point3D.create(cx_cm, z_off_cm, 0.0)
-                line_p2 = adsk.core.Point3D.create(cx_cm, z_off_cm + half_w_cm, 0.0)
-                path_line1 = path_sketch1.sketchCurves.sketchLines.addByTwoPoints(line_p1, line_p2)
-                path1 = features.sweepFeatures.createPath(path_line1)
+                # 3D Sweep along true Z axis using 3D sketch path
+                sweep_sketch1 = sketches.add(sketch_plane)
+                sweep_sketch1.is3D = True
+                p_start = adsk.core.Point3D.create(cx_cm, cy_cm, 0.0)
+                p_mid = adsk.core.Point3D.create(cx_cm, cy_cm, half_w_cm)
+                line1 = sweep_sketch1.sketchCurves.sketchLines.addByTwoPoints(p_start, p_mid)
+                path1 = features.sweepFeatures.createPath(line1)
 
-                sweep_input1 = features.sweepFeatures.createInput(tooth_prof, path1, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-                sweep_input1.twistAngle = adsk.core.ValueInput.createByReal(twist_rad)
-                sweep_input1.participantBodies = [base_body]
-                sw1 = features.sweepFeatures.add(sweep_input1)
+                sweep_in1 = features.sweepFeatures.createInput(tooth_prof, path1, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                sweep_in1.twistAngle = adsk.core.ValueInput.createByReal(twist_rad)
+                sweep_in1.participantBodies = [base_body]
+                sw1 = features.sweepFeatures.add(sweep_in1)
                 tooth_features.append(sw1)
 
-                # Upper half path sketch (along Z axis with reversed twist)
-                path_sketch2 = sketches.add(xz_plane)
-                line_p3 = adsk.core.Point3D.create(cx_cm, z_off_cm + half_w_cm, 0.0)
-                line_p4 = adsk.core.Point3D.create(cx_cm, z_off_cm + face_width_cm, 0.0)
-                path_line2 = path_sketch2.sketchCurves.sketchLines.addByTwoPoints(line_p3, line_p4)
-                path2 = features.sweepFeatures.createPath(path_line2)
+                # Upper half sweep
+                sweep_sketch2 = sketches.add(sketch_plane)
+                sweep_sketch2.is3D = True
+                p_end = adsk.core.Point3D.create(cx_cm, cy_cm, face_width_cm)
+                line2 = sweep_sketch2.sketchCurves.sketchLines.addByTwoPoints(p_mid, p_end)
+                path2 = features.sweepFeatures.createPath(line2)
 
-                sweep_input2 = features.sweepFeatures.createInput(tooth_prof, path2, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-                sweep_input2.twistAngle = adsk.core.ValueInput.createByReal(-twist_rad)
-                sweep_input2.participantBodies = [base_body]
-                sw2 = features.sweepFeatures.add(sweep_input2)
+                sweep_in2 = features.sweepFeatures.createInput(tooth_prof, path2, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                sweep_in2.twistAngle = adsk.core.ValueInput.createByReal(-twist_rad)
+                sweep_in2.participantBodies = [base_body]
+                sw2 = features.sweepFeatures.add(sweep_in2)
                 tooth_features.append(sw2)
 
             except Exception:
-                # Safe fallback to straight extrusion
+                # 100% Reliable clean extrusion
                 tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
                 tooth_ext_input.setDistanceExtent(False, dist)
                 tooth_ext_input.participantBodies = [base_body]
                 tooth_features = [extrudes.add(tooth_ext_input)]
         else:
-            # Spur Gear (Straight Extrude)
+            # Clean Spur Gear Extrude (Exact same height as base cylinder)
             tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
             tooth_ext_input.setDistanceExtent(False, dist)
             tooth_ext_input.participantBodies = [base_body]
@@ -286,37 +284,7 @@ class GearBuilder:
         pattern_input.patternComputeOption = adsk.fusion.PatternComputeOptions.IdenticalPatternCompute
         circular_patterns.add(pattern_input)
 
-        # 6. If Planet Gear, add bearing stop shoulder (fatura)
-        if not is_sun_gear and bearing_outer_dia_mm > safe_bore_dia:
-            try:
-                pocket_r_cm = (bearing_outer_dia_mm / 2.0) * 0.1
-                pocket_depth_cm = min(bearing_width_mm, (face_width_mm - 1.5) / 2.0) * 0.1
-                
-                # Top bearing pocket cut
-                top_pocket_sketch = sketches.add(cls.get_z_plane(target_component, z_off_cm + face_width_cm))
-                top_pocket_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(cx_cm, cy_cm, 0), pocket_r_cm
-                )
-                tp_prof = top_pocket_sketch.profiles.item(0)
-                tp_input = extrudes.createInput(tp_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                tp_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-pocket_depth_cm))
-                tp_input.participantBodies = [base_body]
-                extrudes.add(tp_input)
-
-                # Bottom bearing pocket cut
-                bot_pocket_sketch = sketches.add(sketch_plane)
-                bot_pocket_sketch.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(cx_cm, cy_cm, 0), pocket_r_cm
-                )
-                bp_prof = bot_pocket_sketch.profiles.item(0)
-                bp_input = extrudes.createInput(bp_prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                bp_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(pocket_depth_cm))
-                bp_input.participantBodies = [base_body]
-                extrudes.add(bp_input)
-            except Exception:
-                pass
-
-        # 7. If Sun gear, add integral motor shaft clamping collar below
+        # 6. If Sun gear, add integral motor shaft clamping collar below
         if is_sun_gear and safe_bore_dia > 0:
             collar_dia_mm = max(safe_bore_dia + 6.0, 11.0)
             collar_len_mm = 6.0
