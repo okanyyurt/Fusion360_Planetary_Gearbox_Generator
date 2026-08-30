@@ -265,8 +265,19 @@ class PlanetaryAssemblyManager:
             plate_thickness_mm=5.0,
             name="Top_Bearing_Cover"
         )
-        if cover_body:
-            cls.apply_appearance(cover_body, "Aluminum")
+        # 6. Build 4 Corner Clamping Tie-Rod Bolts (Clamping Top Cover, Housing & Motor Flange)
+        bolt_occ = master_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        bolt_comp = bolt_occ.component
+        bolt_comp.name = "Assembly_Bolts"
+        bolts = HousingBuilder.build_tie_rod_bolts(
+            target_component=bolt_comp,
+            motor_code=motor_code,
+            housing_outer_dia_mm=housing_outer_dia,
+            total_length_mm=total_gearbox_length,
+            name="M3_Tie_Rod_Bolts"
+        )
+        for b in bolts:
+            cls.apply_appearance(b, "Steel")
 
         cls._send_progress(palette, "✅ Redüktör Başarıyla Oluşturuldu!", 100)
         return True

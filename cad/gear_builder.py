@@ -1,7 +1,7 @@
 """
 Fusion 360 3D B-Rep Gear Builder.
 Constructs Sun Gear, Planet Gears, and Internal Ring Gear Enclosure using high-speed
-native Autodesk feature operations on exact Z Construction Planes.
+native Autodesk feature operations (Spur and Herringbone / Double Helical) on exact Z Construction Planes.
 """
 import math
 from typing import List, Tuple, Optional
@@ -99,11 +99,12 @@ class GearBuilder:
         name: str = "Gear"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds external gear body directly positioned at (center_x, center_y) on Z construction plane.
+        Builds external gear body (Spur or Herringbone) positioned at (center_x, center_y) on Z plane.
         """
         features = target_component.features
         sketches = target_component.sketches
         face_width_cm = face_width_mm * 0.1
+        half_w_cm = face_width_cm / 2.0
         cx_cm = center_x_mm * 0.1
         cy_cm = center_y_mm * 0.1
         z_off_cm = z_offset_mm * 0.1
@@ -119,9 +120,9 @@ class GearBuilder:
             backlash_mm=backlash_mm
         )
 
+        pitch_r_cm = geom['pitch_r_cm']
         root_r_cm = geom['root_r_cm']
         base_r_cm = geom['base_r_cm']
-        outside_r_cm = geom['outside_r_cm']
         spline1_pts = geom['spline1_pts']
         spline2_pts = geom['spline2_pts']
 
@@ -178,10 +179,9 @@ class GearBuilder:
             p_coll2.add(adsk.core.Point3D.create(p[0] + cx_cm, p[1] + cy_cm, 0.0))
         spline2 = tooth_sketch.sketchCurves.sketchFittedSplines.add(p_coll2)
 
-        # Tooth Tip Arc
-        mid_tip = adsk.core.Point3D.create(outside_r_cm + cx_cm, 0.0 + cy_cm, 0.0)
-        tooth_sketch.sketchCurves.sketchArcs.addByThreePoints(
-            spline1.endSketchPoint, mid_tip, spline2.endSketchPoint
+        # Tooth Tip Line (Robust ISO/AGMA tooth tip land)
+        tooth_sketch.sketchCurves.sketchLines.addByTwoPoints(
+            spline1.endSketchPoint, spline2.endSketchPoint
         )
 
         # Root connection lines
@@ -209,17 +209,67 @@ class GearBuilder:
 
         tooth_sketch.isComputeDeferred = False
 
-        # 4. Extrude Single Tooth (Join to Base Body)
+        # 4. Form Tooth (Herringbone Sweep or Spur Extrude)
         tooth_prof = tooth_sketch.profiles.item(0)
-        tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-        tooth_ext_input.setDistanceExtent(False, dist)
-        tooth_ext_input.participantBodies = [base_body]
-        tooth_extrude = extrudes.add(tooth_ext_input)
+        tooth_features = []
+
+        if is_herringbone and helix_angle_deg > 1.0:
+            try:
+                # Calculate double-helical twist angle
+                twist_rad = ToothProfileGenerator.calculate_herringbone_twist_angle(
+                    face_width=face_width_mm,
+                    pitch_radius=pitch_r_cm * 10.0,
+                    helix_angle_deg=helix_angle_deg
+                )
+
+                # Lower half path sketch (along Z axis)
+                xz_plane = target_component.xZConstructionPlane
+                path_sketch1 = sketches.add(xz_plane)
+                line_p1 = adsk.core.Point3D.create(cx_cm, z_off_cm, 0.0)
+                line_p2 = adsk.core.Point3D.create(cx_cm, z_off_cm + half_w_cm, 0.0)
+                path_line1 = path_sketch1.sketchCurves.sketchLines.addByTwoPoints(line_p1, line_p2)
+                path1 = features.sweepFeatures.createPath(path_line1)
+
+                sweep_input1 = features.sweepFeatures.createInput(tooth_prof, path1, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                sweep_input1.twistAngle = adsk.core.ValueInput.createByReal(twist_rad)
+                sweep_input1.participantBodies = [base_body]
+                sw1 = features.sweepFeatures.add(sweep_input1)
+                tooth_features.append(sw1)
+
+                # Upper half path sketch (along Z axis with reversed twist)
+                path_sketch2 = sketches.add(xz_plane)
+                line_p3 = adsk.core.Point3D.create(cx_cm, z_off_cm + half_w_cm, 0.0)
+                line_p4 = adsk.core.Point3D.create(cx_cm, z_off_cm + face_width_cm, 0.0)
+                path_line2 = path_sketch2.sketchCurves.sketchLines.addByTwoPoints(line_p3, line_p4)
+                path2 = features.sweepFeatures.createPath(path_line2)
+
+                # Find profile at middle plane
+                mid_plane = cls.get_z_plane(target_component, z_off_cm + half_w_cm)
+                # Sweep upper half
+                sweep_input2 = features.sweepFeatures.createInput(tooth_prof, path2, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                sweep_input2.twistAngle = adsk.core.ValueInput.createByReal(-twist_rad)
+                sweep_input2.participantBodies = [base_body]
+                sw2 = features.sweepFeatures.add(sweep_input2)
+                tooth_features.append(sw2)
+
+            except Exception:
+                # Safe fallback to straight extrusion
+                tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                tooth_ext_input.setDistanceExtent(False, dist)
+                tooth_ext_input.participantBodies = [base_body]
+                tooth_features = [extrudes.add(tooth_ext_input)]
+        else:
+            # Spur Gear (Straight Extrude)
+            tooth_ext_input = extrudes.createInput(tooth_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            tooth_ext_input.setDistanceExtent(False, dist)
+            tooth_ext_input.participantBodies = [base_body]
+            tooth_features = [extrudes.add(tooth_ext_input)]
 
         # 5. Circular Pattern Tooth Around Base Cylinder
         circular_patterns = features.circularPatternFeatures
         entities = adsk.core.ObjectCollection.create()
-        entities.add(tooth_extrude)
+        for feat in tooth_features:
+            entities.add(feat)
 
         cyl_face = None
         for face in base_extrude.sideFaces:
@@ -300,7 +350,7 @@ class GearBuilder:
         name: str = "Ring_Gear_Housing"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Builds complete Ring Gear Housing via Base Housing Tube Extrusion + Single Tooth Space Cut + Circular Pattern.
+        Builds complete Ring Gear Housing with internal teeth and 4 corner tie-rod through-holes.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -316,13 +366,14 @@ class GearBuilder:
         )
 
         tip_r_cm = geom['tip_r_cm']
-        root_r_cm = geom['root_r_cm']
         spline1_pts = geom['spline1_pts']
         spline2_pts = geom['spline2_pts']
 
         # Determine outer housing dimension
         pitch_r_mm = (module * z_ring) / 2.0
         min_housing_dia = (pitch_r_mm * 2.0) + (module * 6.0) + 6.0
+        actual_housing_dia = max(min_housing_dia, outer_housing_dia_mm)
+        actual_housing_r = actual_housing_dia / 2.0 * 0.1
         
         # 2. Base Housing Tube Sketch
         tube_sketch = sketches.add(xy_plane)
@@ -335,12 +386,13 @@ class GearBuilder:
         # Inner tip cylinder bore
         circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), tip_r_cm)
 
-        # Outer Housing Shape
-        if "NEMA17" in motor_code.upper() and min_housing_dia <= 40.0:
+        # Outer Housing Shape & 4 Corner Bolt Holes
+        hole_r = (3.4 / 2.0) * 0.1  # M3 clearance hole
+
+        if "NEMA17" in motor_code.upper() and actual_housing_dia <= 45.0:
             sq_w = 42.3 * 0.1
             half_sq = sq_w / 2.0
             half_hp = (31.0 / 2.0) * 0.1
-            hole_r = (3.4 / 2.0) * 0.1
 
             p1 = adsk.core.Point3D.create(-half_sq, -half_sq, 0)
             p2 = adsk.core.Point3D.create(half_sq, -half_sq, 0)
@@ -356,8 +408,14 @@ class GearBuilder:
                     circles.addByCenterRadius(adsk.core.Point3D.create(hx, hy, 0), hole_r)
 
         else:
-            actual_housing_r = max(min_housing_dia, outer_housing_dia_mm) / 2.0 * 0.1
+            # Expanded Flange with 4 Corner Bolt Holes
             circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), actual_housing_r)
+            bolt_pcd_cm = actual_housing_r * 0.85
+            for i in range(4):
+                ang = (math.pi / 4.0) + (i * math.pi / 2.0)
+                bx = bolt_pcd_cm * math.cos(ang)
+                by = bolt_pcd_cm * math.sin(ang)
+                circles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), hole_r)
 
         tube_sketch.isComputeDeferred = False
 
@@ -394,13 +452,12 @@ class GearBuilder:
             p_coll2.add(adsk.core.Point3D.create(p[0], p[1], 0.0))
         spline2 = space_sketch.sketchCurves.sketchFittedSplines.add(p_coll2)
 
-        # Root connection arc
-        mid_root = adsk.core.Point3D.create(root_r_cm, 0.0, 0.0)
-        space_sketch.sketchCurves.sketchArcs.addByThreePoints(
-            spline1.endSketchPoint, mid_root, spline2.endSketchPoint
+        # Root connection line (at outer root radius)
+        space_sketch.sketchCurves.sketchLines.addByTwoPoints(
+            spline1.endSketchPoint, spline2.endSketchPoint
         )
 
-        # Tip connection line
+        # Tip connection line (at inner tip radius)
         space_sketch.sketchCurves.sketchLines.addByTwoPoints(
             spline1.startSketchPoint, spline2.startSketchPoint
         )

@@ -1,9 +1,9 @@
 """
 Fusion 360 Gearbox Housing, Motor Flange & Top Bearing Cover Builder.
-Constructs NEMA motor adapter plates and top output bearing caps on exact Z Construction Planes.
+Constructs NEMA motor adapter plates, top output bearing caps, and 4 corner tie-rod bolts.
 """
 import math
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 try:
     import adsk.core
@@ -15,7 +15,7 @@ from core.motor_catalog import get_motor_info
 
 class HousingBuilder:
     """
-    Builds motor adapters and top bearing housing covers in Fusion 360.
+    Builds motor adapters, top bearing housing covers, and clamping tie-rod bolts in Fusion 360.
     """
 
     @staticmethod
@@ -58,12 +58,12 @@ class HousingBuilder:
         circles = plate_sketch.sketchCurves.sketchCircles
 
         actual_housing_r = (housing_outer_dia_mm / 2.0) * 0.1
+        tie_r = (3.4 / 2.0) * 0.1  # M3 clearance hole
         
         if "NEMA17" in motor_code.upper() and housing_outer_dia_mm <= 45.0:
             sq_w = 42.3 * 0.1
             half_sq = sq_w / 2.0
             half_hp = (31.0 / 2.0) * 0.1
-            tie_r = (3.4 / 2.0) * 0.1
 
             # Square outer body
             p1 = adsk.core.Point3D.create(-half_sq, -half_sq, 0)
@@ -94,6 +94,14 @@ class HousingBuilder:
                 bx = motor_bolt_pcd_cm * math.cos(angle)
                 by = motor_bolt_pcd_cm * math.sin(angle)
                 circles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), motor_bolt_r_cm)
+
+            # 4 Outer Corner Tie-Rod Holes matching housing
+            bolt_pcd_cm = actual_housing_r * 0.85
+            for i in range(4):
+                ang = (math.pi / 4.0) + (i * math.pi / 2.0)
+                bx = bolt_pcd_cm * math.cos(ang)
+                by = bolt_pcd_cm * math.sin(ang)
+                circles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), tie_r)
 
         plate_sketch.isComputeDeferred = False
 
@@ -132,7 +140,7 @@ class HousingBuilder:
         name: str = "Top_Bearing_Cover"
     ) -> Optional['adsk.fusion.BRepBody']:
         """
-        Creates the top housing cap on an exact Z offset plane with bearing seat pocket for output shaft.
+        Creates the top housing cap on an exact Z offset plane with bearing pocket and 4 bolt counterbores.
         """
         features = target_component.features
         sketches = target_component.sketches
@@ -141,6 +149,7 @@ class HousingBuilder:
         plate_thick_cm = plate_thickness_mm * 0.1
         shaft_hole_r_cm = (output_shaft_dia_mm / 2.0 + 0.5) * 0.1
         actual_housing_r = (housing_outer_dia_mm / 2.0) * 0.1
+        tie_r = (3.4 / 2.0) * 0.1
 
         cover_sketch = sketches.add(cover_plane)
         cover_sketch.name = f"{name}_Sketch"
@@ -153,7 +162,6 @@ class HousingBuilder:
             sq_w = 42.3 * 0.1
             half_sq = sq_w / 2.0
             half_hp = (31.0 / 2.0) * 0.1
-            tie_r = (3.4 / 2.0) * 0.1
 
             p1 = adsk.core.Point3D.create(-half_sq, -half_sq, 0)
             p2 = adsk.core.Point3D.create(half_sq, -half_sq, 0)
@@ -174,6 +182,13 @@ class HousingBuilder:
         else:
             circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), actual_housing_r)
             circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), shaft_hole_r_cm)
+
+            bolt_pcd_cm = actual_housing_r * 0.85
+            for i in range(4):
+                ang = (math.pi / 4.0) + (i * math.pi / 2.0)
+                bx = bolt_pcd_cm * math.cos(ang)
+                by = bolt_pcd_cm * math.sin(ang)
+                circles.addByCenterRadius(adsk.core.Point3D.create(bx, by, 0), tie_r)
 
         cover_sketch.isComputeDeferred = False
 
@@ -197,3 +212,70 @@ class HousingBuilder:
         cover_body.name = name
 
         return cover_body
+
+    @classmethod
+    def build_tie_rod_bolts(
+        cls,
+        target_component: 'adsk.fusion.Component',
+        motor_code: str,
+        housing_outer_dia_mm: float,
+        total_length_mm: float,
+        name: str = "Tie_Rod_Bolts"
+    ) -> List['adsk.fusion.BRepBody']:
+        """
+        Constructs 4 M3 Allen socket cap screws clamping top cover, housing, and motor flange together.
+        """
+        features = target_component.features
+        sketches = target_component.sketches
+        extrudes = features.extrudeFeatures
+
+        actual_housing_r = (housing_outer_dia_mm / 2.0) * 0.1
+        bolt_r_cm = (3.0 / 2.0) * 0.1
+        head_r_cm = (5.5 / 2.0) * 0.1
+        head_h_cm = 3.0 * 0.1
+        total_len_cm = total_length_mm * 0.1 + (5.0 * 0.1)
+
+        # 4 Bolt Positions
+        positions = []
+        if "NEMA17" in motor_code.upper() and housing_outer_dia_mm <= 45.0:
+            half_hp = (31.0 / 2.0) * 0.1
+            for hx in [-half_hp, half_hp]:
+                for hy in [-half_hp, half_hp]:
+                    positions.append((hx, hy))
+        else:
+            bolt_pcd_cm = actual_housing_r * 0.85
+            for i in range(4):
+                ang = (math.pi / 4.0) + (i * math.pi / 2.0)
+                positions.append((bolt_pcd_cm * math.cos(ang), bolt_pcd_cm * math.sin(ang)))
+
+        # Top plane of cover
+        cover_top_plane = cls.get_z_plane(target_component, (total_length_mm + 5.0) * 0.1)
+        bolt_bodies = []
+
+        for b_idx, (bx, by) in enumerate(positions):
+            # Bolt Shank Sketch (Extrudes downwards through all 3 plates)
+            shank_sketch = sketches.add(cover_top_plane)
+            shank_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                adsk.core.Point3D.create(bx, by, 0), bolt_r_cm
+            )
+            shank_prof = shank_sketch.profiles.item(0)
+            shank_input = extrudes.createInput(shank_prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+            shank_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-total_len_cm))
+            shank_ext = extrudes.add(shank_input)
+            bolt_body = shank_ext.bodies.item(0)
+            bolt_body.name = f"M3_Bolt_{b_idx + 1}"
+
+            # Bolt Head Sketch (Extrudes upwards from cover)
+            head_sketch = sketches.add(cover_top_plane)
+            head_sketch.sketchCurves.sketchCircles.addByCenterRadius(
+                adsk.core.Point3D.create(bx, by, 0), head_r_cm
+            )
+            head_prof = head_sketch.profiles.item(0)
+            head_input = extrudes.createInput(head_prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            head_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(head_h_cm))
+            head_input.participantBodies = [bolt_body]
+            extrudes.add(head_input)
+
+            bolt_bodies.append(bolt_body)
+
+        return bolt_bodies
