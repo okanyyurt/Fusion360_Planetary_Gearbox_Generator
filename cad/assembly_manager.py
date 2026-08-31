@@ -18,6 +18,7 @@ from core.circlip_catalog import get_circlip_info
 from cad.gear_builder import GearBuilder
 from cad.carrier_builder import CarrierBuilder
 from cad.housing_builder import HousingBuilder
+from cad.circlip_builder import CirclipBuilder
 
 class PlanetaryAssemblyManager:
     """
@@ -90,6 +91,7 @@ class PlanetaryAssemblyManager:
         output_shaft_len = float(config.get("output_shaft_len", 20.0))
         backlash = float(config.get("backlash", 0.05))
         circlip_type = str(config.get("circlip_type", "DIN_471"))
+        generate_circlips = bool(config.get("generate_circlips", True))
 
         bearing_info = get_bearing_info(bearing_code)
         # Carrier pin diameter is directly matched to the chosen bearing's inner bore
@@ -256,6 +258,29 @@ class PlanetaryAssemblyManager:
             )
             if carrier_body:
                 cls.apply_appearance(carrier_body, "Aluminum")
+
+            # D. Build 3D Printable Snap Circlips (Segman Parçaları)
+            if generate_circlips and circlip_type != "NONE":
+                for p_idx in range(np_planets):
+                    ang = (2.0 * math.pi * p_idx) / np_planets
+                    px_mm = cd_mm * math.cos(ang)
+                    py_mm = cd_mm * math.sin(ang)
+
+                    circlip_occ = stage_comp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+                    circlip_comp = circlip_occ.component
+                    circlip_comp.name = f"Circlip_{stage_idx + 1}_{p_idx + 1}"
+
+                    c_body = CirclipBuilder.build_3d_circlip_body(
+                        target_component=circlip_comp,
+                        center_x_mm=px_mm,
+                        center_y_mm=py_mm,
+                        z_offset_mm=z_current_offset - 0.5,
+                        pin_dia_mm=pin_dia,
+                        circlip_type=circlip_type,
+                        name=f"Circlip_Ring_{p_idx + 1}"
+                    )
+                    if c_body:
+                        cls.apply_appearance(c_body, "Plastic")
             
             z_current_offset += face_width + 5.0
 

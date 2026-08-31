@@ -64,6 +64,7 @@ class PaletteHTMLEventHandler(HTMLEventHandler):
                     import cad.housing_builder
                     import cad.gear_builder
                     import cad.carrier_builder
+                    import cad.circlip_builder
                     import cad.assembly_manager
 
                     importlib.reload(core.tooth_profile)
@@ -74,6 +75,7 @@ class PaletteHTMLEventHandler(HTMLEventHandler):
                     importlib.reload(cad.housing_builder)
                     importlib.reload(cad.gear_builder)
                     importlib.reload(cad.carrier_builder)
+                    importlib.reload(cad.circlip_builder)
                     importlib.reload(cad.assembly_manager)
                 except Exception:
                     pass

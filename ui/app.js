@@ -535,6 +535,7 @@ function initActionButtons() {
       motor_shaft_type: document.getElementById('motor_shaft_type').value,
       bearing_type: document.getElementById('bearing_type').value,
       circlip_type: document.getElementById('circlip_type').value,
+      generate_circlips: document.getElementById('generate_circlips') ? document.getElementById('generate_circlips').checked : true,
       pin_dia: parseFloat(document.getElementById('pin_dia').value) || 5.0,
       generate_housing: document.getElementById('generate_housing').checked,
       output_shaft_dia: parseFloat(document.getElementById('output_shaft_dia').value) || 8.0,
