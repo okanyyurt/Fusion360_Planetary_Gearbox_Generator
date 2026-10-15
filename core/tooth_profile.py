@@ -38,21 +38,25 @@ class ToothProfileGenerator:
         module: float, 
         pressure_angle_deg: float = 20.0, 
         backlash_mm: float = 0.05,
-        num_involute_points: int = 12
+        num_involute_points: int = 12,
+        addendum: float = 1.0,
+        shift: float = 0.0
     ) -> Dict:
         """
         Calculates Autodesk-standard tooth profile for Sun and Planet gears.
         Returns radial parameters and single tooth flank splines in centimeters (cm).
+        addendum: tooth depth coefficient h_a* (addendum h_a*·m, dedendum (h_a* + 0.157)·m).
+        shift: profile shift coefficient x (tip and root +x·m, tooth thickness m (pi/2 + 2 x tan alpha)).
         """
         z = int(z)
         m_cm = float(module) * 0.1
         pa_rad = math.radians(pressure_angle_deg)
         pitch_dia_cm = z * m_cm
         pitch_r_cm = pitch_dia_cm / 2.0
-        dedendum_cm = 1.157 * m_cm
+        dedendum_cm = (addendum + 0.157 - shift) * m_cm
         root_r_cm = pitch_r_cm - dedendum_cm
         base_r_cm = pitch_r_cm * math.cos(pa_rad)
-        outside_r_cm = (z + 2.0) * m_cm / 2.0
+        outside_r_cm = pitch_r_cm + (addendum + shift) * m_cm
         
         inv_pts = []
         inv_size = outside_r_cm - base_r_cm
@@ -62,10 +66,12 @@ class ToothProfileGenerator:
             
         pitch_inv_pt = involute_point(base_r_cm, pitch_r_cm)
         pitch_pt_angle = math.atan2(pitch_inv_pt[1], pitch_inv_pt[0])
-        
-        tooth_thick_angle = math.pi / z
+
+        # backlash_mm = total circumferential backlash of ONE mesh, shared equally by both gears:
+        # each gear is thinned by backlash/2 at the pitch circle -> backlash/4 per flank.
+        tooth_thick_angle = (math.pi + 4.0 * shift * math.tan(pa_rad)) / z
         backlash_cm = backlash_mm * 0.1
-        backlash_angle = backlash_cm / pitch_r_cm
+        backlash_angle = (backlash_cm / 4.0) / pitch_r_cm
         rotate_angle = -((tooth_thick_angle / 2.0) - backlash_angle + pitch_pt_angle)
         
         cos_a = math.cos(rotate_angle)
@@ -96,23 +102,28 @@ class ToothProfileGenerator:
         module: float, 
         pressure_angle_deg: float = 20.0, 
         backlash_mm: float = 0.05,
-        num_involute_points: int = 12
+        num_involute_points: int = 12,
+        addendum: float = 1.0,
+        shift: float = 0.0
     ) -> Dict:
         """
         Calculates the exact involute tooth space pocket for Internal Ring Gear cut operation.
         Returns radial parameters and space pocket flank splines in centimeters (cm).
+        addendum: tooth depth coefficient h_a* (tip r - h_a*·m, root r + (h_a* + 0.25)·m).
+        shift: profile shift x of the ring (= the planet's): tip r - (h_a* - x)·m, root r + (h_a* + 0.25 + x)·m,
+        space width m (pi/2 + 2 x tan alpha).
         """
         z_r = int(z_ring)
         m_cm = float(module) * 0.1
         pa_rad = math.radians(pressure_angle_deg)
         pitch_dia_cm = z_r * m_cm
         pitch_r_cm = pitch_dia_cm / 2.0
-        
+
         # In internal ring gear:
         # tip_r is inner cylinder bore
-        tip_r_cm = pitch_r_cm - 1.0 * m_cm
+        tip_r_cm = pitch_r_cm - (addendum - shift) * m_cm
         # root_r is the outer bottom of the tooth space
-        root_r_cm = pitch_r_cm + 1.25 * m_cm
+        root_r_cm = pitch_r_cm + (addendum + 0.25 + shift) * m_cm
         base_r_cm = pitch_r_cm * math.cos(pa_rad)
         
         r_inv_start = max(base_r_cm, tip_r_cm)
@@ -126,7 +137,8 @@ class ToothProfileGenerator:
         pitch_inv_pt = involute_point(base_r_cm, pitch_r_cm)
         pitch_pt_angle = math.atan2(pitch_inv_pt[1], pitch_inv_pt[0])
         
-        space_angle = (math.pi / z_r) + ((backlash_mm * 0.1) / pitch_r_cm)
+        # Ring takes its half of the mesh backlash: tooth space widened by backlash/2 at the pitch circle
+        space_angle = ((math.pi + 4.0 * shift * math.tan(pa_rad)) / z_r) + ((backlash_mm * 0.1 / 2.0) / pitch_r_cm)
         rotate_angle = -((space_angle / 2.0) + pitch_pt_angle)
         
         cos_a = math.cos(rotate_angle)

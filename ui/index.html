@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div class="studio" id="studio">
   <div class="app-container">
     <!-- Header -->
     <header class="app-header">
@@ -22,16 +23,21 @@
       </div>
       <div class="header-badges">
         <span class="badge badge-accent" data-i18n="badgeFusion">Fusion 360</span>
-        <span class="badge badge-success" data-i18n="badgeVersion">v1.0 Pro</span>
+        <span class="badge badge-success" id="host_status" hidden></span>
+        <span class="badge badge-success" data-i18n="badgeVersion">v2.8 Pro</span>
         <button id="lang_toggle_btn" class="lang-toggle-btn" title="Switch to English" onclick="toggleLanguage()">
           <span class="lang-flag">🇬🇧</span>
           <span class="lang-label">EN</span>
         </button>
       </div>
     </header>
+    <div class="host-banner" id="host_banner" hidden></div>
 
     <!-- Main Navigation Tabs -->
     <nav class="tab-nav">
+      <button class="tab-btn tab-ai standalone-only" data-tab="tab-ai">
+        <span class="tab-icon">✨</span> <span data-i18n="tabAI">AI Asistan</span>
+      </button>
       <button class="tab-btn active" data-tab="tab-power">
         <span class="tab-icon">⚡</span> 1. <span data-i18n="tabMotor">Motor & Oran</span>
       </button>
@@ -47,11 +53,105 @@
       <button class="tab-btn" data-tab="tab-tolerances">
         <span class="tab-icon">🎯</span> 5. <span data-i18n="tabTolerances">3D Baskı / Tolerans</span>
       </button>
+      <button class="tab-btn standalone-only" data-tab="tab-strength">
+        <span class="tab-icon">🧮</span> 6. <span data-i18n="tabStrength">Malzeme & Dayanım</span>
+      </button>
+      <button class="tab-btn fusion-only" data-tab="tab-results" id="tab_btn_results" hidden>
+        <span class="tab-icon">📋</span> <span data-i18n="tabResults">Sonuçlar</span>
+      </button>
     </nav>
 
     <!-- Tab Contents -->
     <main class="tab-content-wrapper">
-      
+
+      <!-- TAB AI: natural-language design assistant (Gemini) + offline requirement solver -->
+      <section id="tab-ai" class="tab-pane standalone-only">
+        <div class="ai-head">
+          <div class="ai-title">
+            <h3 data-i18n="aiTitle">AI Tasarım Asistanı</h3>
+            <span class="ai-chip" id="ai_chip" data-i18n="aiNoKey">anahtar yok</span>
+          </div>
+          <div class="ai-head-actions">
+            <button class="btn btn-secondary btn-sm" id="ai_new" data-i18n="aiNewChat">Yeni sohbet</button>
+            <button class="btn btn-secondary btn-sm" id="ai_settings_btn" data-i18n="aiSettings">⚙ Ayarlar</button>
+          </div>
+        </div>
+        <p class="field-hint ai-intro" data-i18n="aiIntro">İhtiyacınızı kendi cümlelerinizle yazın: motor, istenen devir veya oran, gereken tork, yer sınırı, çıkış (mil/flanş/kol). Hesapları uygulamanın mühendislik motoru yapar; AI anlar, seçenekleri dener ve açıklar. Önerilen tasarımı tek tıkla forma uygulayabilirsiniz.</p>
+        <div class="ai-examples" id="ai_examples">
+          <button class="ai-example" data-i18n="aiEx1">NEMA17 motorla 25:1, olabildiğince küçük bir redüktör</button>
+          <button class="ai-example" data-i18n="aiEx2">300 rpm 5 Nm motorumdan 2 rpm ve en az 600 Nm istiyorum; D tipi Ø5 mil; en fazla 290 mm çap, 280 mm boy</button>
+          <button class="ai-example" data-i18n="aiEx3">NEMA17 ile kol mekanizması: 30 cm yassı kol, ucunda 2 kg kaldıracak, yavaş dönsün</button>
+        </div>
+        <div class="ai-log" id="ai_log"></div>
+        <div class="ai-input-row">
+          <textarea id="ai_input" rows="3" data-i18n-placeholder="aiPlaceholder" placeholder="Örn: NEMA23 motor, 100:1, PETG ile basacağım, 200 mm çapı geçmesin…"></textarea>
+          <button class="btn btn-primary" id="ai_send" data-i18n="aiSend">Gönder</button>
+        </div>
+
+        <details class="ai-req" id="ai_req_box">
+          <summary data-i18n="aiReqTitle">Gereksinim formu — AI olmadan çöz</summary>
+          <div class="form-grid ai-req-grid">
+            <div class="form-group"><label for="rq_motor_preset" data-i18n="labelMotor">Motor</label>
+              <select id="rq_motor_preset"></select></div>
+            <div class="form-group"><label for="rq_motor_torque" data-i18n="rqMotorTorque">Motor torku (Nm)</label>
+              <input type="number" id="rq_motor_torque" step="0.05" min="0"></div>
+            <div class="form-group"><label for="rq_motor_speed" data-i18n="rqMotorSpeed">Motor devri (rpm)</label>
+              <input type="number" id="rq_motor_speed" step="10" min="1"></div>
+            <div class="form-group"><label for="rq_motor_shaft_dia" data-i18n="rqShaft">Motor mili (mm)</label>
+              <input type="number" id="rq_motor_shaft_dia" step="0.5" min="1"></div>
+            <div class="form-group"><label for="rq_output_speed" data-i18n="rqOutSpeed">İstenen çıkış devri (rpm)</label>
+              <input type="number" id="rq_output_speed" step="0.1" min="0" value="0"></div>
+            <div class="form-group"><label for="rq_ratio" data-i18n="rqRatio">veya oran (:1)</label>
+              <input type="number" id="rq_ratio" step="1" min="0" value="25"></div>
+            <div class="form-group"><label for="rq_min_output_torque" data-i18n="rqMinTorque">Gereken çıkış torku (Nm)</label>
+              <input type="number" id="rq_min_output_torque" step="1" min="0" value="0"></div>
+            <div class="form-group"><label for="rq_load_value" data-i18n="rqLoad">veya uygulama yükü (opsiyonel)</label>
+              <div class="load-input">
+                <input type="number" id="rq_load_value" step="0.5" min="0" value="0">
+                <select id="rq_load_unit" aria-label="unit">
+                  <option value="KG" selected>kg</option>
+                  <option value="N">N</option>
+                  <option value="NM">Nm</option>
+                </select>
+              </div></div>
+            <div class="form-group"><label for="rq_load_radius" data-i18n="rqLoadRadius">Kuvvet kolu (mm, kol çıkışında 0 = kol boyu)</label>
+              <input type="number" id="rq_load_radius" step="1" min="0" value="0"></div>
+            <div class="form-group"><label for="rq_max_od" data-i18n="rqMaxOd">En fazla çap (mm, 0 = yok)</label>
+              <input type="number" id="rq_max_od" step="5" min="0" value="0"></div>
+            <div class="form-group"><label for="rq_max_length" data-i18n="rqMaxLength">En fazla boy (mm, 0 = yok)</label>
+              <input type="number" id="rq_max_length" step="5" min="0" value="0"></div>
+            <div class="form-group"><label for="rq_gear_material" data-i18n="rqMaterial">Malzeme</label>
+              <select id="rq_gear_material"><option value="AUTO" data-i18n="rqMatAuto">Otomatik (PLA → PA-CF)</option></select></div>
+            <div class="form-group"><label for="rq_arrangement" data-i18n="rqArrangement">Düzen</label>
+              <select id="rq_arrangement">
+                <option value="CARRIER" data-i18n="arrShortCarrier">Standart (taşıyıcı çıkışı)</option>
+                <option value="RING" data-i18n="arrShortRing">Dönen gövde (tambur)</option>
+              </select></div>
+            <div class="form-group"><label for="rq_output_type" data-i18n="labelOutputType">Çıkış Tipi</label>
+              <select id="rq_output_type">
+                <option value="FLANGE" data-i18n="outputFlange">Flanş göbeği (ince kesit rulmanlı, 4×M3 burç)</option>
+                <option value="SHAFT_PRINTED" data-i18n="outputShaftPrinted">D-mil (baskı)</option>
+                <option value="SHAFT_STEEL" data-i18n="outputShaftSteel">Çelik D-mil yuvası</option>
+                <option value="ARM" data-i18n="outputArm">Kol (yassı / yuvarlak: kapak, bariyer, menteşeli / döner mekanizma)</option>
+                <option value="DRUM_WINCH" data-i18n="outputDrumWinch">Vinç tamburu — halat sarılan, kenarlı tambur</option>
+              </select></div>
+            <div class="form-group"><label for="rq_prefer" data-i18n="rqPrefer">Öncelik</label>
+              <select id="rq_prefer">
+                <option value="small" data-i18n="rqPreferSmall">En küçük hacim</option>
+                <option value="strong" data-i18n="rqPreferStrong">En güçlü — verilen alanı doldur</option>
+                <option value="short" data-i18n="rqPreferShort">En kısa boy</option>
+              </select></div>
+            <div class="form-group"><label class="checkbox-container" style="margin-top: 22px;">
+              <input type="checkbox" id="rq_len_motor" checked>
+              <span data-i18n="rqLenMotor">Boy sınırı motoru da kapsar</span></label></div>
+          </div>
+          <div class="ai-req-actions">
+            <span class="field-hint" data-i18n="rqHint">Kol ölçüleri ve yazıcı tablası formdaki (4. ve 5. sekme) değerlerden alınır.</span>
+            <button class="btn btn-primary btn-sm" id="rq_solve" data-i18n="rqSolve">Çöz</button>
+          </div>
+        </details>
+      </section>
+
       <!-- TAB 1: MOTOR & ORAN -->
       <section id="tab-power" class="tab-pane active">
         <div class="section-title">
@@ -59,6 +159,22 @@
         </div>
 
         <div class="form-grid">
+          <!-- Arrangement / use: which member is fixed, which one turns (engine) -->
+          <div class="form-group full-width standalone-only" id="group_arrangement">
+            <div class="label-row">
+              <label for="arrangement" data-i18n="labelArrangement">Redüktör Düzeni / Kullanım</label>
+              <button class="help-btn" data-modal="modal-arrangement" data-i18n-title="helpArrangement" title="Düzenler: hangi eleman sabit, hangisi döner?">?</button>
+            </div>
+            <select id="arrangement">
+              <option value="CARRIER" selected data-i18n="arrCarrier">Standart redüktör — taşıyıcı çıkışı (mil / flanş / kol), gövde sabit</option>
+              <option value="RING" data-i18n="arrRing">Dönen gövde (tambur) — çember çıkışı, taşıyıcı sabit: tekerlek, vinç, döner tabla, döner kol</option>
+              <option value="SPEED_UP" data-i18n="arrSpeedUp">Hız artırıcı — jeneratör / rüzgâr türbini / el krankı (çıkıştan döndürülür)</option>
+              <option value="WOLFROM" data-i18n="arrWolfrom">Wolfrom — tek kademede 50–500:1, kademeli planet, dönen çıkış çemberi (çoğu kendiliğinden kilitli)</option>
+              <option value="CYCLOID" data-i18n="arrCycloid">Sikloidal — tek kademede 6–60:1, dişsiz, çok rijit ve boşluksuz (robot eklemi, döner tabla)</option>
+            </select>
+            <span class="field-hint" id="hint_arrangement">Gövde sabit, güneş motorla döner, taşıyıcı çıkıştır: en yüksek oran, en küçük gövde.</span>
+          </div>
+
           <!-- Target Ratio -->
           <div class="form-group">
             <div class="label-row">
@@ -66,23 +182,31 @@
               <button class="help-btn" data-modal="modal-assembly" title="Montaj ve Oran Açıklaması">?</button>
             </div>
             <div class="input-with-unit">
-              <input type="number" id="target_ratio" value="25.0" min="2.0" max="500.0" step="0.5">
+              <input type="number" id="target_ratio" value="25.0" min="2.0" max="50000.0" step="0.5">
               <span class="unit">: 1</span>
             </div>
-            <span class="field-hint">Örn: 25 yazarsanız hızı 25 kat düşürür, torku ~24 kat artırır.</span>
+            <label class="checkbox-container standalone-only" id="group_ratio_from_load">
+              <input type="checkbox" id="ratio_from_load">
+              <span data-i18n="labelRatioFromLoad">Oranı yükten hesapla (yükü kaldıran en düşük oran)</span>
+            </label>
+            <span class="field-hint" id="hint_target_ratio" data-i18n="hintTargetRatio">Örn: 25 yazarsanız hızı 25 kat düşürür, torku ~24 kat artırır.</span>
           </div>
 
           <!-- Number of Stages -->
-          <div class="form-group">
+          <div class="form-group" id="group_stages">
             <div class="label-row">
               <label for="stages_count">Kademe Sayısı (Stage Count)</label>
               <button class="help-btn" data-modal="modal-multistage" title="Çok Kademeli Aktarım Açıklaması">?</button>
             </div>
             <select id="stages_count">
-              <option value="1">1 Kademe (Oran: 3:1 ~ 9:1)</option>
-              <option value="2" selected>2 Kademe (Oran: 9:1 ~ 80:1)</option>
-              <option value="3">3 Kademe (Oran: 50:1 ~ 500:1)</option>
+              <option value="AUTO" class="standalone-only" data-i18n="stagesAutoLabel">Otomatik — orana, yüke ve alana göre (1–5)</option>
+              <option value="1" data-i18n="stage1Label">1 Kademe (Oran: 3:1 ~ 9:1)</option>
+              <option value="2" selected data-i18n="stage2Label">2 Kademe (Oran: 9:1 ~ 80:1)</option>
+              <option value="3" data-i18n="stage3Label">3 Kademe (Oran: 50:1 ~ 500:1)</option>
+              <option value="4" class="standalone-only" data-i18n="stage4Label">4 Kademe (Oran: 60:1 ~ 6000:1)</option>
+              <option value="5" class="standalone-only" data-i18n="stage5Label">5 Kademe (Oran: 200:1 ~ 50000:1)</option>
             </select>
+            <span class="field-hint standalone-only" id="hint_stages"></span>
           </div>
 
           <!-- Motor Preset -->
@@ -127,14 +251,130 @@
             </select>
           </div>
 
+          <!-- Motor torque / speed (standalone engineering) -->
+          <div class="form-group standalone-only" id="group_motor_torque">
+            <div class="label-row">
+              <label for="motor_torque" data-i18n="labelMotorTorque">Motor Sürekli Torku</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="motor_torque" value="0.40" min="0.01" max="200" step="0.05">
+              <span class="unit">Nm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintMotorTorque">Dayanım hesabının girdisi; gerçek yük torkunu girebilirsiniz.</span>
+          </div>
+          <div class="form-group standalone-only" id="group_motor_speed">
+            <div class="label-row">
+              <label for="motor_speed" data-i18n="labelMotorSpeed">Motor Devri</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="motor_speed" value="300" min="1" max="60000" step="10">
+              <span class="unit">rpm</span>
+            </div>
+          </div>
+
+          <!-- Speed-up gearbox: what turns the output member (crank, wind rotor) -->
+          <div class="form-group standalone-only" id="group_drive_torque">
+            <div class="label-row">
+              <label for="drive_torque" data-i18n="labelDriveTorque">Giriş Torku (krank / türbin)</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="drive_torque" value="5" min="0.01" max="5000" step="0.5">
+              <span class="unit">Nm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintDriveTorque">Çıkış elemanını (kol / mil / flanş) çeviren en büyük tork: el krankı ~5–15 Nm, küçük rüzgâr rotoru ~0.5–5 Nm.</span>
+          </div>
+          <div class="form-group standalone-only" id="group_drive_speed">
+            <div class="label-row">
+              <label for="drive_speed" data-i18n="labelDriveSpeed">Giriş Devri</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="drive_speed" value="60" min="0.1" max="5000" step="5">
+              <span class="unit">rpm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintDriveSpeed">Jeneratör (motor) devri = giriş devri × oran. Motor bu düzende jeneratör olarak çalışır.</span>
+          </div>
+
+          <!-- Application load (optional): is the design suitable for what it has to move? -->
+          <div class="form-group standalone-only" id="group_load_value">
+            <div class="label-row">
+              <label for="load_value" data-i18n="labelLoad">Uygulama Yükü (opsiyonel)</label>
+              <button class="help-btn" data-modal="modal-load" data-i18n-title="helpLoad" title="Yük kontrolü nasıl çalışır?">?</button>
+            </div>
+            <div class="load-input">
+              <input type="number" id="load_value" value="0" min="0" max="100000" step="0.5">
+              <select id="load_unit" aria-label="unit">
+                <option value="KG" selected data-i18n="loadUnitKg">kg</option>
+                <option value="N" data-i18n="loadUnitN">N</option>
+                <option value="NM" data-i18n="loadUnitNm">Nm (tork)</option>
+              </select>
+            </div>
+            <span class="field-hint" data-i18n="hintLoad">Çıkışın çekeceği / iteceği en büyük yük: kg veya N (kuvvet kolu ile) ya da doğrudan tork (Nm). Girilirse tasarımın uygun olup olmadığı söylenir; 0 = kontrol yok.</span>
+          </div>
+          <div class="form-group standalone-only" id="group_load_radius">
+            <div class="label-row">
+              <label for="load_radius" data-i18n="labelLoadRadius">Kuvvet Kolu (eksenden uzaklık)</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="load_radius" value="0" min="0" max="5000" step="1">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint" id="hint_load_radius">Makara / tambur / tekerlek yarıçapı ya da kuvvetin eksene uzaklığı.</span>
+          </div>
+
+          <!-- Sizing mode (standalone) -->
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="sizing_mode" data-i18n="labelSizingMode">Boyutlandırma</label>
+            </div>
+            <select id="sizing_mode">
+              <option value="AUTO" selected data-i18n="sizingAuto">Otomatik — en küçük uygun gövde</option>
+              <option value="MAX_OD" data-i18n="sizingMaxOd">Maks. dış çap — en dayanıklı tasarım</option>
+              <option value="MANUAL" data-i18n="sizingManual">Manuel modül</option>
+            </select>
+          </div>
+          <div class="form-group standalone-only" id="group_max_od">
+            <div class="label-row">
+              <label for="max_od" data-i18n="labelMaxOd">Maksimum Dış Çap (kulaklar dahil)</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="max_od" value="80" min="30" max="600" step="1">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="max_length" data-i18n="labelMaxLength">Maksimum Toplam Boy</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="max_length" value="0" min="0" max="1000" step="5">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintMaxLength">Motor flanşından çıkış elemanının ucuna; 0 = sınır yok.</span>
+          </div>
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="ratio_tol" data-i18n="labelRatioTol">Oran Toleransı</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="ratio_tol" value="3" min="0.2" max="20" step="0.5">
+              <span class="unit">%</span>
+            </div>
+          </div>
+          <div class="form-group standalone-only">
+            <label class="checkbox-container" style="margin-top: 24px;">
+              <input type="checkbox" id="strength_required" checked>
+              <span data-i18n="labelStrengthReq">Dayanım şartını sağlat (kapalıysa sadece geometri)</span>
+            </label>
+          </div>
+
           <!-- Module Selection -->
-          <div class="form-group">
+          <div class="form-group" id="group_module">
             <div class="label-row">
               <label for="module">Dişli Modülü (m)</label>
               <span class="badge badge-info" id="module_rec_badge">Öneri: 1.0mm</span>
             </div>
             <div class="input-with-unit">
-              <input type="number" id="module" value="1.0" min="0.4" max="5.0" step="0.1">
+              <input type="number" id="module" value="1.0" min="0.4" max="6.0" step="0.1">
               <span class="unit">mm</span>
             </div>
             <span class="field-hint">3D Baskı için 0.8mm - 1.5mm idealdir.</span>
@@ -147,9 +387,11 @@
               <button class="help-btn" data-modal="modal-assembly" title="Planet Yerleşimi">?</button>
             </div>
             <select id="num_planets">
-              <option value="3" selected>3 Planet (120° Simetri - En Yaygın)</option>
+              <option value="AUTO" selected class="standalone-only" data-i18n="planetsAuto">Otomatik — her kademede sığan en çok planet (en yüksek tork)</option>
+              <option value="3">3 Planet (120° Simetri - En Yaygın)</option>
               <option value="4">4 Planet (90° Simetri - Yüksek Yük)</option>
               <option value="5">5 Planet (72° Simetri - Ağır Hizmet)</option>
+              <option value="6" data-i18n="planets6">6 Planet (60° Simetri - Çok Ağır Hizmet)</option>
             </select>
           </div>
         </div>
@@ -163,7 +405,7 @@
 
         <div class="form-grid">
           <!-- Gear Profile Type -->
-          <div class="form-group full-width">
+          <div class="form-group full-width" id="group_gear_type">
             <div class="label-row">
               <label>Dişli Tipi Tercihi</label>
               <button class="help-btn" data-modal="modal-herringbone" title="Balıksırtı ve Düz Dişli Karşılaştırması">?</button>
@@ -193,10 +435,10 @@
               <button class="help-btn" data-modal="modal-herringbone" title="Helis Açısı Bilgisi">?</button>
             </div>
             <div class="input-with-unit">
-              <input type="number" id="helix_angle" value="25.0" min="15.0" max="40.0" step="1.0">
+              <input type="number" id="helix_angle" value="20.0" min="10.0" max="40.0" step="1.0">
               <span class="unit">derece (°)</span>
             </div>
-            <span class="field-hint">Standart: 25° - 30°. Yüksek açı yumuşak kavramayı artırır.</span>
+            <span class="field-hint" data-i18n="hintHelixAngle">Standart: 20° - 30°. Yüksek açı kavramayı yumuşatır, dişler daha keskin döner.</span>
           </div>
 
           <!-- Face Width -->
@@ -205,7 +447,7 @@
               <label for="face_width">Diş Genişliği (Face Width - b)</label>
             </div>
             <div class="input-with-unit">
-              <input type="number" id="face_width" value="12.0" min="4.0" max="50.0" step="1.0">
+              <input type="number" id="face_width" value="12.0" min="4.0" max="80.0" step="1.0">
               <span class="unit">mm</span>
             </div>
           </div>
@@ -220,6 +462,37 @@
               <option value="25.0">25° (3D Baskı / Ağır Yük Diş Kökü)</option>
               <option value="14.5">14.5° (Hassas / Düşük Boşluk)</option>
             </select>
+          </div>
+
+          <!-- Tooth depth (addendum coefficient) -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="addendum_coef" data-i18n="labelAddendum">Diş Yüksekliği Katsayısı (h*a)</label>
+              <button class="help-btn" data-modal="modal-addendum" data-i18n-title="helpAddendum" title="Diş yüksekliği: avantaj ve dezavantajlar">?</button>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="addendum_coef" value="1.00" min="0.75" max="1.30" step="0.05">
+              <span class="unit">× m</span>
+            </div>
+            <span class="field-hint" data-i18n="hintAddendum">1.00 standart. 0.80 kısa diş: kök daha sağlam, baskı hatasına toleranslı, kavrama oranı düşer. 1.10–1.25 uzun diş: daha yumuşak ve sessiz, ama kök zayıflar, uçlar incelir.</span>
+          </div>
+
+          <!-- Profile shift (V-zero: sun +x, planet and ring -x) -->
+          <div class="form-group standalone-only" id="group_profile_shift">
+            <div class="label-row">
+              <label for="profile_shift" data-i18n="labelProfileShift">Profil Kaydırma (x)</label>
+              <button class="help-btn" data-modal="modal-shift" data-i18n-title="helpShift" title="Profil kaydırma nedir?">?</button>
+            </div>
+            <select id="profile_shift">
+              <option value="AUTO" selected data-i18n="shiftAuto">Otomatik — dayanımı dengele, dar kökü önle</option>
+              <option value="NONE" data-i18n="shiftNone">Yok — standart diş (x = 0)</option>
+              <option value="CUSTOM" data-i18n="shiftCustom">Elle — güneş x değeri</option>
+            </select>
+            <div class="input-with-unit" id="group_shift_x" style="margin-top: 6px;">
+              <input type="number" id="profile_shift_x" value="0.20" min="-0.5" max="0.8" step="0.05">
+              <span class="unit">x</span>
+            </div>
+            <span class="field-hint" id="hint_profile_shift" data-i18n="hintProfileShift">Güneş +x, planet ve çember −x alır; eksen mesafesi ve oran değişmez. Küçük güneşin kökü kalınlaşır, planetle dayanım dengelenir.</span>
           </div>
         </div>
       </section>
@@ -250,8 +523,29 @@
             </select>
           </div>
 
+          <!-- Bearing layout & pin type (standalone) -->
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="bearing_layout" data-i18n="labelBearingLayout">Planet Başına Rulman</label>
+            </div>
+            <select id="bearing_layout">
+              <option value="AUTO" selected data-i18n="layoutAuto">Otomatik (sığarsa çift)</option>
+              <option value="DUAL" data-i18n="layoutDual">Çift — alt + üst (devrilmeye dayanıklı)</option>
+              <option value="SINGLE" data-i18n="layoutSingle">Tek — üst yüzde</option>
+            </select>
+          </div>
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="pin_type" data-i18n="labelPinType">Planet Pimi</label>
+            </div>
+            <select id="pin_type">
+              <option value="STEEL" selected data-i18n="pinSteel">Çelik pim (ISO 8734 / DIN 6325)</option>
+              <option value="PRINTED" data-i18n="pinPrinted">Baskı pim (yatay basılır)</option>
+            </select>
+          </div>
+
           <!-- Circlip / Segman Selection -->
-          <div class="form-group">
+          <div class="form-group single-carrier-only">
             <div class="label-row">
               <label for="circlip_type">Eksenel Segman Tipi (Circlip)</label>
               <span class="badge badge-info" id="circlip_specs_badge">DIN 471-8</span>
@@ -264,7 +558,7 @@
           </div>
 
           <!-- 3D Printable Circlip Checkbox -->
-          <div class="form-group full-width">
+          <div class="form-group full-width single-carrier-only">
             <label class="checkbox-container">
               <input type="checkbox" id="generate_circlips" checked>
               <span class="checkmark"></span>
@@ -317,8 +611,115 @@
             <span class="field-hint">İşaret kaldırılırsa sadece serbest dişli çarklar ve taşıyıcı çizilir.</span>
           </div>
 
+          <!-- Mounting bracket under the motor flange -->
+          <div class="form-group full-width standalone-only" id="group_mount">
+            <div class="label-row"><label for="mount_type" data-i18n="labelMountType">Montaj Braketi</label></div>
+            <select id="mount_type">
+              <option value="" selected data-i18n="mountNone">Yok</option>
+              <option value="SIDE" data-i18n="mountSide">Yan montaj (L braket) — eksen yüzeye paralel: duvar / direk yanına dik, zemine yatay; gövde duvara değmez</option>
+              <option value="BASE" data-i18n="mountBase">Ayaklı taban — eksen yüzeye dik: zemine / masaya dik (döner tabla) veya duvara dik (tekerlek, vinç)</option>
+              <option value="PANEL" data-i18n="mountPanel">Panel / plaka — motor panel deliğinden geçer, redüktör panelin üstünde (makine gövdesi, masa)</option>
+            </select>
+            <span class="field-hint" data-i18n="hintMount">Braket motor flanşının altına girer; bağlantı cıvataları rafa kadar uzar, somunlar rafın altındaki yuvalara girer: redüktörün tepki torku doğrudan brakete geçer (cıvata deliği ezilmesi hesapta). Her redüktör tipinde kullanılabilir.</span>
+          </div>
+
+          <!-- Carrier type & output type (standalone) -->
+          <div class="form-group standalone-only" id="group_carrier_type">
+            <div class="label-row">
+              <label for="carrier_type" data-i18n="labelCarrierType">Taşıyıcı Tipi</label>
+            </div>
+            <select id="carrier_type">
+              <option value="CAGE" selected data-i18n="carrierCage">Kafes — iki plaka + pim (önerilen, desteksiz baskı)</option>
+              <option value="SINGLE" data-i18n="carrierSingle">Tek plaka + baskı pim + segman (klasik)</option>
+            </select>
+          </div>
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="output_type" data-i18n="labelOutputType">Çıkış Tipi</label>
+            </div>
+            <select id="output_type">
+              <option value="FLANGE" selected data-i18n="outputFlange">Flanş göbeği (ince kesit rulmanlı, M3 bağlantı)</option>
+              <option value="SHAFT_PRINTED" data-i18n="outputShaftPrinted">D-mil (baskı)</option>
+              <option value="SHAFT_STEEL" data-i18n="outputShaftSteel">Çelik D-mil yuvası</option>
+              <option value="ARM" data-i18n="outputArm">Kol (yassı / yuvarlak: kapak, bariyer, menteşeli / döner mekanizma)</option>
+              <option value="DRUM_FLANGE" data-i18n="outputDrumFlange">Tambur flanşı — kapakta vida dairesi (tekerlek, kasnak, tabla bağlanır)</option>
+              <option value="DRUM_ARM" data-i18n="outputDrumArm">Tambur kolu — kapağa vidalı kol (kapak, bariyer, döner mekanizma)</option>
+              <option value="DRUM_WINCH" data-i18n="outputDrumWinch">Vinç tamburu — halat sarılan, kenarlı tambur</option>
+            </select>
+          </div>
+          <div class="form-group standalone-only" id="group_hub_fastener">
+            <div class="label-row">
+              <label for="hub_fastener" data-i18n="labelHubFastener">Çıkış Bağlantısı (flanş / kol vidaları)</label>
+            </div>
+            <select id="hub_fastener">
+              <option value="NUT" selected data-i18n="fastenerNut">Tutsak M3 somun — yandan takılan yuvalar (önerilen)</option>
+              <option value="INSERT" data-i18n="fastenerInsert">Isıl burç (M3 heat-set insert)</option>
+            </select>
+          </div>
+          <div class="form-group standalone-only" id="group_out_hub">
+            <div class="label-row">
+              <label for="out_hub" data-i18n="labelOutHub">Çıkış Göbeği / Rulmanı</label>
+            </div>
+            <select id="out_hub">
+              <option value="AUTO" selected data-i18n="outHubAuto">Otomatik — tork için gereken göbek (gövde gerekirse büyür)</option>
+            </select>
+            <span class="field-hint" data-i18n="hintOutHub">Büyük göbek = daha güçlü çıkış ve kol bağlantısı; kapağa sığmazsa uyarı verilir.</span>
+          </div>
+
+          <div class="standalone-only" id="group_arm">
+            <div class="form-group">
+              <div class="label-row"><label for="arm_shape" data-i18n="labelArmShape">Kol Kesiti</label></div>
+              <select id="arm_shape">
+                <option value="FLAT" selected data-i18n="armFlat">Yassı (genişlik × kalınlık)</option>
+                <option value="ROUND" data-i18n="armRound">Yuvarlak çubuk (çap)</option>
+              </select>
+            </div>
+            <div class="form-group" id="group_arm_length">
+              <div class="label-row"><label for="arm_length" data-i18n="labelArmLength">Kol Boyu (eksenden uç deliğine)</label></div>
+              <div class="input-with-unit">
+                <input type="number" id="arm_length" value="100" min="20" max="1000" step="5">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+            <div class="form-group" id="group_arm_width">
+              <div class="label-row"><label for="arm_width" data-i18n="labelArmWidth">Kol Genişliği / Çapı</label></div>
+              <div class="input-with-unit">
+                <input type="number" id="arm_width" value="30" min="6" max="300" step="1">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+            <div class="form-group" id="group_arm_thickness">
+              <div class="label-row"><label for="arm_thickness" data-i18n="labelArmThickness">Kol Kalınlığı</label></div>
+              <div class="input-with-unit">
+                <input type="number" id="arm_thickness" value="8" min="3" max="40" step="0.5">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+            <div class="form-group full-width" id="group_declutch">
+              <label class="checkbox-container">
+                <input type="checkbox" id="declutch">
+                <span class="checkmark"></span>
+                <span data-i18n="labelDeclutch">Boşa alma (yaylı indeks pimi GN 617.1) — kolu çıkıştan ayırıp elle çevir</span>
+              </label>
+              <span class="field-hint" data-i18n="hintDeclutch">Kol, çıkış göbeğine veya tambur kapağına vidalanan tahrik bileziğinin üzerinde serbest döner; yaylı bir indeks pimi (GN 617.1, dinlenme konumlu, kilit somunlu) kolu bileziğe bağlar. Topuzu çekip çeyrek tur çevirince kol redüktörden ayrılır ve elle döner (ör. elektrik kesintisinde); geri çevirince pim delikler hizalandığında kendiliğinden girer. Pim ölçüsü ve yarıçapı torka göre seçilir (baskı deliği ezilmesi hesaplanır); ileride topuzun yerine çekme solenoidi takılabilir.</span>
+            </div>
+            <span class="field-hint arm-load-note" data-i18n="hintArmLoadMoved">Kol ucundaki yükü 1. sekmedeki “Uygulama Yükü” alanına girin (kuvvet kolu = kol boyu).</span>
+          </div>
+
+          <!-- Winch drum: rope diameter (rim height, rope anchor hole, lever arm of the load) -->
+          <div class="form-group standalone-only" id="group_rope_dia">
+            <div class="label-row">
+              <label for="rope_dia" data-i18n="labelRopeDia">Halat / İp Çapı</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="rope_dia" value="4" min="1" max="20" step="0.5">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintRopeDia">Kenar yüksekliği ~2.5 × halat çapı; halat üst kenardaki delikten bağlanır. Yükün kuvvet kolu 0 ise tambur yarıçapı alınır.</span>
+          </div>
+
           <!-- Output Shaft Diameter -->
-          <div class="form-group">
+          <div class="form-group" id="group_output_dia">
             <div class="label-row">
               <label for="output_shaft_dia">Redüktör Çıkış Şaft Çapı</label>
             </div>
@@ -329,7 +730,7 @@
           </div>
 
           <!-- Output Shaft Length -->
-          <div class="form-group">
+          <div class="form-group" id="group_output_len">
             <div class="label-row">
               <label for="output_shaft_len">Çıkış Şaft Uzunluğu</label>
             </div>
@@ -337,6 +738,7 @@
               <input type="number" id="output_shaft_len" value="20.0" min="5.0" max="80.0" step="1.0">
               <span class="unit">mm</span>
             </div>
+            <span class="field-hint standalone-only" data-i18n="hintOutputLen">Kapaktan dışarı taşan uzunluk.</span>
           </div>
 
           <!-- Carrier Plate Thickness -->
@@ -345,9 +747,33 @@
               <label for="carrier_thick">Taşıyıcı Plaka Kalınlığı</label>
             </div>
             <div class="input-with-unit">
-              <input type="number" id="carrier_thick" value="3.5" min="2.0" max="15.0" step="0.5">
+              <input type="number" id="carrier_thick" value="4.0" min="2.0" max="15.0" step="0.5">
               <span class="unit">mm</span>
             </div>
+          </div>
+
+          <!-- Housing wall & tie rods (standalone) -->
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="wall_thickness" data-i18n="labelWall">Gövde Et Kalınlığı (diş dibinden)</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="wall_thickness" value="3.0" min="1.6" max="12" step="0.2">
+              <span class="unit">mm</span>
+            </div>
+          </div>
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="tie_rod" data-i18n="labelTieRod">Bağlantı Cıvatası</label>
+            </div>
+            <select id="tie_rod">
+              <option value="AUTO" selected data-i18n="tieAuto">Otomatik (gövde çapına göre)</option>
+              <option value="M3">M3</option>
+              <option value="M4">M4</option>
+              <option value="M5">M5</option>
+              <option value="M6">M6</option>
+              <option value="M8">M8</option>
+            </select>
           </div>
         </div>
       </section>
@@ -396,6 +822,183 @@
             </div>
             <span class="field-hint">+ değer yuvaları genişletir (kolay montaj için).</span>
           </div>
+
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="pin_tolerance" data-i18n="labelPinTol">Pim Deliği Toleransı</label>
+            </div>
+            <div class="input-with-unit">
+              <input type="number" id="pin_tolerance" value="0.00" min="-0.2" max="0.4" step="0.01">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintPinTol">0 = çelik pim için sıkı geçme (FDM delikleri ~0.1 mm küçük çıkar).</span>
+          </div>
+
+          <!-- Tolerance calibration coupon: print the fits of this design, enter the best numbers -->
+          <div class="form-group full-width standalone-only calib-box" id="group_calibration">
+            <div class="label-row">
+              <label data-i18n="labelCalibration">🎯 Kalibrasyon Parçası — toleransları yazıcınıza göre ayarlayın</label>
+              <button class="help-btn" data-modal="modal-calibration" data-i18n-title="helpCalibration" title="Kalibrasyon nasıl yapılır?">?</button>
+            </div>
+            <span class="field-hint" data-i18n="hintCalibration">Seçili tasarımın rulman yuvaları, pim delikleri ve diş boşluğu için numaralı deneme parçaları üretilir. Redüktörü basacağınız ayarlarla basın, her testte en iyi numarayı aşağıda seçip Uygula'ya basın.</span>
+            <div class="calib-actions">
+              <button class="btn btn-secondary btn-sm" id="btn_calibration" data-i18n="btnCalibration">Kalibrasyon parçasını oluştur</button>
+              <span class="field-hint" id="calib_saved"></span>
+            </div>
+            <div id="calib_results" hidden>
+              <div class="calib-grid" id="calib_rows"></div>
+              <div class="calib-actions">
+                <button class="btn btn-primary btn-sm" id="btn_calib_apply" data-i18n="btnCalibApply">Uygula ve hatırla</button>
+                <button class="btn btn-secondary btn-sm" id="btn_calib_forget" data-i18n="btnCalibForget">Kaydı sil</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group standalone-only">
+            <div class="label-row">
+              <label for="bed_preset" data-i18n="labelBedPreset">3D Yazıcı Tablası</label>
+            </div>
+            <select id="bed_preset">
+              <option value="256,256,256" selected>Bambu Lab X1 / P1 / A1 (256×256×256)</option>
+              <option value="180,180,180">Bambu Lab A1 mini (180×180×180)</option>
+              <option value="300,300,300">Creality K1 Max (300×300×300)</option>
+              <option value="220,220,250">Creality K1 / K1C / Ender-3 V3 (220×220×250)</option>
+              <option value="350,350,350">Creality K2 Plus (350×350×350)</option>
+              <option value="235,235,250">Creality Ender-3 V2/S1 (235×235×250)</option>
+              <option value="300,300,400">Creality CR-10 (300×300×400)</option>
+              <option value="250,210,220">Prusa MK4 / MK3S (250×210×220)</option>
+              <option value="250,220,270">Prusa Core One (250×220×270)</option>
+              <option value="360,360,360">Prusa XL (360×360×360)</option>
+              <option value="225,225,265">Elegoo Neptune 4 / Pro (225×225×265)</option>
+              <option value="420,420,480">Elegoo Neptune 4 Max (420×420×480)</option>
+              <option value="350,350,340">Voron 2.4 350 (350×350×340)</option>
+              <option value="CUSTOM" data-i18n="bedCustom">Özel ölçü</option>
+            </select>
+          </div>
+          <div class="form-group standalone-only" id="group_slicer_profile">
+            <div class="label-row">
+              <label for="slicer_profile" data-i18n="labelSlicerProfile">Dilimleyici Profili (3MF)</label>
+            </div>
+            <select id="slicer_profile">
+              <option value="" selected data-i18n="slicerGeneric">Genel 3MF — her dilimleyici (ayarlar PrusaSlicer'da)</option>
+              <option value="creality k1 max">Creality K1 Max — Creality Print / OrcaSlicer</option>
+              <option value="creality k1">Creality K1 — Creality Print / OrcaSlicer</option>
+              <option value="creality k1c">Creality K1C — Creality Print / OrcaSlicer</option>
+              <option value="creality k1 se">Creality K1 SE — Creality Print / OrcaSlicer</option>
+            </select>
+            <span class="field-hint" data-i18n="hintSlicerProfile">Dışa aktarmada baskıya hazır bir 3MF de yazılır: parçalar tablalara dizilmiş, her parçanın duvar / dolgu / katman ayarı üzerinde. Creality K1 seçilirse yazıcı, işlem ve malzeme (PLA, PETG, ABS, PA-CF, PC) profili de dosyadadır.</span>
+          </div>
+          <div class="form-group standalone-only" id="group_bed_custom">
+            <div class="label-row">
+              <label for="bed_x" data-i18n="labelBedSize">Tabla X × Y × Z</label>
+            </div>
+            <div class="bed-inputs">
+              <input type="number" id="bed_x" value="256" min="50" max="1000" step="1">
+              <input type="number" id="bed_y" value="256" min="50" max="1000" step="1">
+              <input type="number" id="bed_z" value="256" min="30" max="1000" step="1">
+              <span class="unit">mm</span>
+            </div>
+            <span class="field-hint" data-i18n="hintBed">Tablaya sığmayan parçalar için uyarı verilir; AI asistan da bu ölçüyü dikkate alır.</span>
+          </div>
+          <div class="form-group standalone-only">
+            <label class="checkbox-container" style="margin-top: 24px;">
+              <input type="checkbox" id="fit_bed" checked>
+              <span data-i18n="labelFitBed">Gövde ve flanş tablaya sığsın (daha büyük tasarımları eleme)</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: MALZEME & DAYANIM (standalone) -->
+      <section id="tab-strength" class="tab-pane standalone-only">
+        <div class="section-title">
+          <h3 data-i18n="tab6Title">Malzeme, Yük Durumu ve Emniyet Hedefleri</h3>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <div class="label-row"><label for="gear_material" data-i18n="labelGearMat">Dişli Malzemesi</label></div>
+            <select id="gear_material"></select>
+          </div>
+          <div class="form-group">
+            <div class="label-row"><label for="struct_material" data-i18n="labelStructMat">Taşıyıcı / Gövde Malzemesi</label></div>
+            <select id="struct_material"></select>
+          </div>
+          <div class="form-group">
+            <div class="label-row"><label for="app_factor" data-i18n="labelKA">Uygulama Faktörü K_A</label></div>
+            <select id="app_factor">
+              <option value="1.0" data-i18n="ka100">1.00 — düzgün, darbesiz</option>
+              <option value="1.25" selected data-i18n="ka125">1.25 — hafif darbeli (step motor, robotik)</option>
+              <option value="1.5" data-i18n="ka150">1.50 — orta darbeli</option>
+              <option value="1.75" data-i18n="ka175">1.75 — ağır darbeli</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="label-row"><label for="target_sf" data-i18n="labelTargetSF">Hedef Emniyet (eğilme / yapısal)</label></div>
+            <input type="number" id="target_sf" value="1.4" min="1.0" max="4" step="0.1">
+          </div>
+          <div class="form-group">
+            <div class="label-row"><label for="target_sh" data-i18n="labelTargetSH">Hedef Emniyet (yüzey basıncı)</label></div>
+            <input type="number" id="target_sh" value="1.0" min="0.6" max="3" step="0.1">
+          </div>
+          <div class="form-group">
+            <div class="label-row"><label for="target_life" data-i18n="labelTargetLife">Hedef Rulman Ömrü L10h</label></div>
+            <div class="input-with-unit">
+              <input type="number" id="target_life" value="2000" min="100" max="100000" step="100">
+              <span class="unit">h</span>
+            </div>
+          </div>
+          <div class="form-group full-width standalone-only" id="group_expert">
+            <label class="checkbox-container">
+              <input type="checkbox" id="expert_mode">
+              <span class="checkmark"></span>
+              <strong data-i18n="labelExpert">Uzman modu — sıcaklık, çevrim ömrü, aşınma, sünme</strong>
+            </label>
+            <span class="field-hint" data-i18n="hintExpert">Ek hesaplar: diş sıcaklığı (planet düzenlerinde VDI 2736 yapısında: güç, sürtünme, devir, gövde yüzeyi; Wolfrom ve sikloidalde kayıp gücün gövdeden atılmasıyla, kuru çalışmada verim de düşer), sıcaklıkla düşen mukavemet, hedef ömürdeki diş çevrim sayısına göre yorulma (malzeme değerleri 10⁶ çevrim kabulüyle), aşınma derinliği ve durarak yük tutmada sünme. Tasarım araması bunları da sağlar; sonuçlar yaklaşık mühendislik tahminleridir.</span>
+          </div>
+          <div class="form-group expert-only">
+            <div class="label-row"><label for="ambient_temp" data-i18n="labelAmbient">Ortam Sıcaklığı</label></div>
+            <div class="input-with-unit">
+              <input type="number" id="ambient_temp" value="23" min="-30" max="80" step="1">
+              <span class="unit">°C</span>
+            </div>
+          </div>
+          <div class="form-group expert-only">
+            <div class="label-row"><label for="duty_pct" data-i18n="labelDuty">Çalışma Oranı (ED)</label></div>
+            <div class="input-with-unit">
+              <input type="number" id="duty_pct" value="100" min="1" max="100" step="5">
+              <span class="unit">%</span>
+            </div>
+            <span class="field-hint" data-i18n="hintDuty">Redüktörün zamanın ne kadarında döndüğü (ısınma için).</span>
+          </div>
+          <div class="form-group expert-only">
+            <div class="label-row"><label for="lubrication" data-i18n="labelLube">Yağlama</label></div>
+            <select id="lubrication">
+              <option value="GREASE" selected data-i18n="lubeGrease">Gresli (PTFE / lityum gres)</option>
+              <option value="DRY" data-i18n="lubeDry">Kuru (yağlamasız)</option>
+            </select>
+          </div>
+          <div class="form-group expert-only">
+            <div class="label-row"><label for="hold_hours" data-i18n="labelHold">Durarak Yük Tutma Süresi</label></div>
+            <div class="input-with-unit">
+              <input type="number" id="hold_hours" value="0" min="0" max="100000" step="10">
+              <span class="unit">h</span>
+            </div>
+            <span class="field-hint" data-i18n="hintHold">Yük hareketsizken toplam kaç saat tutuluyor (sünme); 0 = yok. Yük girilmişse o, yoksa nominal çıkış torku tutulur.</span>
+          </div>
+          <div class="form-group full-width">
+            <div class="engineering-box" id="engineering_box"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESULTS (Fusion 360 palette; the standalone app shows them next to the 3D viewer) -->
+      <section id="tab-results" class="tab-pane">
+        <div class="section-title">
+          <h3 data-i18n="tabResultsTitle">Üretilen Model</h3>
+        </div>
+        <div class="engine-results" id="engine_results">
+          <div class="engine-actions" id="engine_actions"></div>
+          <p class="field-hint" data-i18n="fusionViewNote">3D görünüm, patlatma ve kesit için Fusion 360'ın kendi araçlarını kullanın; grup kutuları bileşenleri Fusion'da gösterir/gizler. STEP, STL, rapor ve parça listesi üretimle birlikte klasöre yazıldı.</p>
         </div>
       </section>
 
@@ -404,9 +1007,13 @@
     <!-- LIVE REAL-TIME CALCULATION SUMMARY CARD -->
     <div class="calc-summary-card">
       <div class="calc-header">
-        <span class="calc-title">📊 Gerçek Zamanlı Dişli & Kinematik Sentezi</span>
+        <button class="calc-toggle" id="calc_toggle" type="button" data-i18n-title="calcToggle" title="Ayrıntıları göster / gizle">
+          <span class="calc-caret">▾</span>
+          <span class="calc-title" data-i18n="calcTitle">📊 Gerçek Zamanlı Dişli & Kinematik Sentezi</span>
+        </button>
         <span class="badge badge-success" id="calc_status_badge">✓ Montaj Şartı Doğrulandı</span>
       </div>
+      <div class="calc-compact" id="calc_compact"></div>
       
       <div class="calc-metrics-grid">
         <div class="metric-item">
@@ -433,11 +1040,48 @@
           <span class="metric-label">Temas Oranı (Overlap)</span>
           <span class="metric-val" id="metric_contact">&gt; 2.2</span>
         </div>
+        <div class="metric-item standalone-only">
+          <span class="metric-label" data-i18n="metricOutTorque">Çıkış Torku / Kapasite</span>
+          <span class="metric-val" id="metric_out_torque">–</span>
+        </div>
+        <div class="metric-item standalone-only">
+          <span class="metric-label" data-i18n="metricSafety">Emniyet Marjı</span>
+          <span class="metric-val" id="metric_safety">–</span>
+        </div>
+        <div class="metric-item standalone-only">
+          <span class="metric-label" data-i18n="metricModule">Modül / Rulman</span>
+          <span class="metric-val" id="metric_module">–</span>
+        </div>
+        <div class="metric-item standalone-only">
+          <span class="metric-label" data-i18n="metricLength">Toplam Boy</span>
+          <span class="metric-val" id="metric_length">–</span>
+        </div>
+        <div class="metric-item standalone-only">
+          <span class="metric-label" data-i18n="metricOutHub">Çıkış Göbeği</span>
+          <span class="metric-val" id="metric_out_hub">–</span>
+        </div>
+        <div class="metric-item standalone-only">
+          <span class="metric-label" data-i18n="metricBed">Tablaya Sığma</span>
+          <span class="metric-val" id="metric_bed">–</span>
+        </div>
+        <div class="metric-item standalone-only metric-load">
+          <span class="metric-label" data-i18n="metricLoad">Yük Uygunluğu</span>
+          <span class="metric-val" id="metric_load">–</span>
+        </div>
       </div>
 
       <div class="candidate-selector-wrapper" id="candidate_wrapper">
         <label for="candidate_select">Bulunan En Uygun Dişli Kombinasyonları:</label>
         <select id="candidate_select"></select>
+      </div>
+      <div class="design-status standalone-only" id="design_status"></div>
+      <div class="load-verdict standalone-only" id="load_verdict" hidden></div>
+      <div class="kin-bar" id="kin_bar" hidden>
+        <button class="tool-btn kin-play" id="kin_play" title="Oynat / durdur">▶</button>
+        <span class="kin-label" data-i18n="kinInput">Giriş açısı</span>
+        <input type="range" id="kin_angle" min="-720" max="720" value="0" step="1">
+        <span class="kin-readout" id="kin_readout">0° → 0.00°</span>
+        <span class="kin-hint" id="kin_hint" data-i18n="kinHint">Shift + sürükle: dişliyi elle döndür</span>
       </div>
     </div>
 
@@ -450,6 +1094,63 @@
     </footer>
   </div>
 
+    <!-- 3D VIEWER (standalone mode only; hidden inside the Fusion 360 palette) -->
+    <section class="viewer-panel" id="viewer_panel" aria-label="3D">
+      <div class="viewer-toolbar">
+        <div class="viewer-title"><span class="viewer-dot"></span><span data-i18n="viewerTitle">3D Montaj Önizleme</span></div>
+        <div class="viewer-tools">
+          <label class="tool-slider"><span data-i18n="viewerExplode">Patlat</span>
+            <input type="range" id="explode_slider" min="0" max="100" value="0">
+          </label>
+          <label class="tool-check"><input type="checkbox" id="xray_toggle"><span data-i18n="viewerXray">Şeffaf gövde</span></label>
+          <label class="tool-check"><input type="checkbox" id="section_toggle"><span data-i18n="viewerSection">Kesit</span></label>
+          <label class="tool-check"><input type="checkbox" id="edges_toggle" checked><span data-i18n="viewerEdges">Kenarlar</span></label>
+          <div class="tool-views">
+            <button class="tool-btn" data-view="iso">ISO</button>
+            <button class="tool-btn" data-view="bottom" data-i18n="viewBottom">Alt</button>
+            <button class="tool-btn" data-view="top" data-i18n="viewTop">Üst</button>
+            <button class="tool-btn" data-view="front" data-i18n="viewFront">Ön</button>
+          </div>
+        </div>
+      </div>
+      <div class="viewer-body">
+        <div class="viewer-canvas" id="viewer_canvas">
+          <div class="viewer-empty" id="viewer_empty">
+            <div class="viewer-empty-icon">⚙️</div>
+            <div class="viewer-empty-title" data-i18n="viewerEmptyTitle">Henüz model yok</div>
+            <div class="viewer-empty-text" data-i18n="viewerEmptyText">Soldaki parametreleri ayarlayıp “3D Modeli Oluştur” düğmesine basın.</div>
+          </div>
+        </div>
+        <aside class="viewer-side" id="viewer_side" hidden>
+          <div class="side-section">
+            <div class="side-title" data-i18n="sideSummary">Özet</div>
+            <div class="summary-grid" id="result_summary"></div>
+          </div>
+          <div class="side-section">
+            <div class="side-title" data-i18n="sideEngineering">Mühendislik</div>
+            <div id="result_engineering"></div>
+          </div>
+          <div class="side-section" id="warnings_section" hidden>
+            <div class="side-title side-title-warn" data-i18n="sideWarnings">Uyarılar</div>
+            <ul class="warning-list" id="result_warnings"></ul>
+          </div>
+          <div class="side-section side-parts">
+            <div class="side-title" data-i18n="sideParts">Parçalar</div>
+            <div id="result_parts"></div>
+          </div>
+        </aside>
+      </div>
+      <div class="viewer-footer">
+        <div class="export-status" id="export_status"></div>
+        <div class="export-actions">
+          <button class="btn btn-secondary btn-sm" id="btn_export_dir" data-i18n="btnExportDir">Klasör Seç…</button>
+          <button class="btn btn-secondary btn-sm" id="btn_export_step" disabled data-i18n="btnExportStep">STEP Kaydet…</button>
+          <button class="btn btn-primary btn-sm" id="btn_export_all" disabled data-i18n="btnExportAll">Dışa Aktar (STEP + STL)</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <!-- Progress Overlay (shown during 3D generation) -->
   <div class="progress-overlay" id="progress_overlay" style="display:none;">
     <div class="progress-card">
@@ -459,6 +1160,37 @@
         <span class="progress-pct" id="progress_pct">0%</span>
       </div>
       <div class="progress-bar"><div class="progress-fill" id="progress_fill"></div></div>
+    </div>
+  </div>
+
+  <!-- AI SETTINGS -->
+  <div class="modal-overlay" id="ai_settings_overlay">
+    <div class="modal-card ai-settings-card">
+      <div class="modal-header">
+        <h3 data-i18n="aiSettingsTitle">AI Asistan Ayarları (Google Gemini)</h3>
+        <button class="modal-close-btn" id="ai_settings_close">✕</button>
+      </div>
+      <div class="modal-body ai-settings-body">
+        <div class="form-group">
+          <label for="ai_key" data-i18n="aiKeyLabel">Gemini API anahtarı</label>
+          <div class="ai-key-row">
+            <input type="password" id="ai_key" autocomplete="off" spellcheck="false" data-i18n-placeholder="aiKeyPlaceholder" placeholder="AIza… (Google AI Studio → Get API key)">
+            <button class="btn btn-primary btn-sm" id="ai_key_save" data-i18n="aiSave">Kaydet</button>
+            <button class="btn btn-secondary btn-sm" id="ai_key_clear" data-i18n="aiClear">Sil</button>
+          </div>
+          <span class="field-hint" id="ai_key_status"></span>
+        </div>
+        <div class="form-group">
+          <label for="ai_model" data-i18n="aiModelLabel">Model</label>
+          <div class="ai-key-row">
+            <select id="ai_model"><option value="auto" data-i18n="aiModelAuto">Otomatik — hesabınızdaki en güçlü model</option></select>
+            <button class="btn btn-secondary btn-sm" id="ai_models_load" data-i18n="aiModelsLoad">Modelleri getir</button>
+            <button class="btn btn-secondary btn-sm" id="ai_test" data-i18n="aiTest">Bağlantıyı test et</button>
+          </div>
+          <span class="field-hint" id="ai_model_status"></span>
+        </div>
+        <div class="ai-privacy" data-i18n="aiPrivacy">Yazdıklarınız ve tasarım verileri yanıt üretmek için Google Gemini'ye gönderilir. Anahtar bu bilgisayarda Windows şifrelemesiyle (DPAPI) saklanır ve yalnızca Google'ın Gemini adresine gönderilir. Anahtarı Google AI Studio'dan (aistudio.google.com/apikey) alabilirsiniz; Pro modeller faturalı hesap gerektirebilir, "Otomatik" seçimde erişiminiz olmayan modeller atlanır.</div>
+      </div>
     </div>
   </div>
 
@@ -481,6 +1213,8 @@
   </div>
 
   <script src="i18n.js"></script>
+  <script src="viewer.js"></script>
   <script src="app.js"></script>
+  <script src="assistant.js"></script>
 </body>
 </html>

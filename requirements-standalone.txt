@@ -1,0 +1,5 @@
+# Planetary Gearbox Generator - standalone (Fusion 360 gerektirmez)
+# OpenCascade cekirdegi (STEP/STL, B-Rep modelleme)
+cadquery-ocp-novtk>=7.8
+# Masaustu penceresi (Windows'ta WebView2 / Edge kullanir)
+pywebview>=5.0

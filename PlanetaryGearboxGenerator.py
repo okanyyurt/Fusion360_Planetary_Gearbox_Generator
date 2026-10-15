@@ -1,19 +1,19 @@
 """
-Autodesk Fusion 360 Planetary Gearbox Generator
-Main Add-In / Script Entry Point.
+Autodesk Fusion 360 Planetary Gearbox Generator — Add-In entry point.
 
-Creates the Fusion 360 Ribbon Command, launches the interactive HTML5 Palette UI,
-handles JavaScript bi-directional events, and drives 3D CAD modeling.
+The palette shows the same UI as the standalone desktop app. Design, automatic sizing and the
+engineering checks run inside Fusion (pure Python `core/`); the geometry is produced by the shared
+OpenCascade engine in a separate Python process and imported into the active design as a STEP
+assembly. STL files, the engineering report and the parts list are written next to it.
 
 Author: Okan Yeşilyurt & Antigravity
-Version: 1.0.0
+Version: 2.8.0
 """
+import json
 import os
 import sys
-import json
 import traceback
 
-# Add current folder to sys.path so core and cad modules are resolved properly
 current_dir = os.path.dirname(os.path.realpath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
@@ -30,207 +30,252 @@ except ImportError:
     UserInterfaceGeneralEventHandler = object
     CommandCreatedEventHandler = object
 
-from cad.assembly_manager import PlanetaryAssemblyManager
-
-# Global references to keep handlers alive in memory
 app = None
 ui = None
 handlers = []
-palette_id = 'PlanetaryGearboxPalette_v1'
+api = None
+palette_id = 'PlanetaryGearboxPalette_v3'
 cmd_id = 'PlanetaryGearboxCmd_v1'
+panel_id = 'PlanetaryGearboxPanel'          # own panel in the UTILITIES tab (like other gear add-ins)
+TOOLS_TAB = 'ToolsTab'                      # UTILITIES tab of the Design workspace
+CREATE_PANEL = 'SolidCreatePanel'           # SOLID > CREATE menu (secondary entry)
+PALETTE_SIZE = (700, 820)                   # fits 1080p screens at 125 % display scaling
+kinematics = None
+
+
+OWN_PACKAGES = ('core', 'standalone', 'occ_cad', 'fusion_kinematics')
+
+
+def _purge_own_modules():
+    """
+    Fusion keeps every imported module alive between add-in restarts, so Stop/Run would keep running
+    the old design engine after an update. Drop our own modules (only those loaded from this folder)
+    so the next import reads the current files.
+    """
+    root = os.path.normcase(os.path.realpath(current_dir))
+    for name in list(sys.modules):
+        if name.split('.')[0] not in OWN_PACKAGES:
+            continue
+        path = getattr(sys.modules.get(name), '__file__', None) or ''
+        if path and os.path.normcase(os.path.realpath(path)).startswith(root):
+            del sys.modules[name]
+
+
+def _push_to_palette(data):
+    palette = ui.palettes.itemById(palette_id) if ui else None
+    if palette:
+        palette.sendInfoToHTML('fusionMessageReceived', json.dumps(data, ensure_ascii=False))
+        adsk.doEvents()
+
+
+def _import_step(step_path, name, result=None):
+    """Imports the STEP assembly into the active design, then adds joints and motion links."""
+    global kinematics
+    design = adsk.fusion.Design.cast(app.activeProduct)
+    if not design:
+        raise RuntimeError('Lütfen önce aktif bir Fusion 360 tasarım belgesi açın.')
+    before = set(o.fullPathName for o in design.rootComponent.allOccurrences)
+    manager = app.importManager
+    options = manager.createSTEPImportOptions(step_path)
+    if not manager.importToTarget(options, design.rootComponent):
+        raise RuntimeError('STEP içe aktarılamadı: ' + step_path)
+    try:
+        app.activeViewport.fit()
+    except Exception:
+        pass
+    kin = (result or {}).get('kinematics')
+    if not kin:
+        return None
+    from fusion_kinematics import GearboxKinematics
+    k = GearboxKinematics()
+    kinematics = k
+    try:
+        k.match(design, before, kin)          # parça grupları (göster/gizle) eklemlerden bağımsız çalışır
+        return k.setup(design, before, kin)
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}
+
+
+def _rotate(input_deg):
+    if kinematics is None:
+        raise RuntimeError('Hareket bağlantıları kurulmadı.')
+    kinematics.rotate(input_deg)
+    adsk.doEvents()
+
+
+def _set_group_visible(group, on):
+    if kinematics is None:
+        raise RuntimeError('Önce modeli oluşturun.')
+    kinematics.set_group_visible(group, on)
+    adsk.doEvents()
+
+
+def _get_api():
+    global api
+    if api is None:
+        from standalone.fusion_api import FusionApi
+        api = FusionApi(push=_push_to_palette, pump=adsk.doEvents, importer=_import_step, rotator=_rotate,
+                        visibility=_set_group_visible, addin_dir=current_dir)
+    return api
+
+
+def _api_methods():
+    from standalone.fusion_api import FUSION_METHODS
+    return FUSION_METHODS
+
 
 class PaletteHTMLEventHandler(HTMLEventHandler):
-    """Handles incoming data/events from JavaScript inside the HTML Palette."""
+    """JS -> Python: adsk.fusionSendData('api', {method, args}); the answer goes back via returnData."""
     def __init__(self):
         super().__init__()
-        
-    def notify(self, args: adsk.core.HTMLEventArgs):
+
+    def notify(self, args):
+        html_args = adsk.core.HTMLEventArgs.cast(args)
         try:
-            html_args = adsk.core.HTMLEventArgs.cast(args)
-            action = html_args.action
-            data_str = html_args.data
-            
-            if action == 'generateGearbox':
-                payload = json.loads(data_str)
-                
-                # Auto reload all modules to ensure latest code is executed without stale cache
-                try:
-                    import importlib
-                    import core.tooth_profile
-                    import core.kinematics
-                    import core.bearing_catalog
-                    import core.motor_catalog
-                    import core.circlip_catalog
-                    import cad.housing_builder
-                    import cad.gear_builder
-                    import cad.carrier_builder
-                    import cad.circlip_builder
-                    import cad.assembly_manager
-
-                    importlib.reload(core.tooth_profile)
-                    importlib.reload(core.kinematics)
-                    importlib.reload(core.bearing_catalog)
-                    importlib.reload(core.motor_catalog)
-                    importlib.reload(core.circlip_catalog)
-                    importlib.reload(cad.housing_builder)
-                    importlib.reload(cad.gear_builder)
-                    importlib.reload(cad.carrier_builder)
-                    importlib.reload(cad.circlip_builder)
-                    importlib.reload(cad.assembly_manager)
-                except Exception:
-                    pass
-
-                # Check active design
-                product = app.activeProduct
-                design = adsk.fusion.Design.cast(product)
-                if not design:
-                    ui.messageBox('Lütfen önce aktif bir Fusion 360 tasarım belgesi (.f3d) açın.', 'Belge Bulunamadı')
-                    return
-                
-                # Run CAD Generation
-                from cad.assembly_manager import PlanetaryAssemblyManager
-                success = PlanetaryAssemblyManager.generate_gearbox(payload)
-                if success:
-                    ui.messageBox(
-                        f"Planet Redüktör Başarıyla Oluşturuldu!\n\n"
-                        f"• Toplam Oran: {payload.get('total_ratio')}:1\n"
-                        f"• Kademe Sayısı: {len(payload.get('stages', []))}\n"
-                        f"• Diş Tipi: {'Balıksırtı (Herringbone)' if payload.get('is_herringbone') else 'Düz (Spur)'}\n"
-                        f"• Motor Şaftı: Ø{payload.get('motor_shaft_dia')} mm ({payload.get('motor_shaft_type')})",
-                        "İşlem Tamamlandı"
-                    )
-                else:
-                    ui.messageBox("Modelleme sırasında bir hata oluştu.", "Hata")
-                    
+            if html_args.action != 'api':
+                return
+            request = json.loads(html_args.data or '{}')
+            method = request.get('method')
+            if method not in _api_methods():
+                html_args.returnData = json.dumps({'success': False, 'error': 'unknown method: %s' % method})
+                return
+            result = getattr(_get_api(), method)(*request.get('args', []))
+            html_args.returnData = json.dumps(result, ensure_ascii=False, default=str)
         except Exception as e:
+            html_args.returnData = json.dumps({'success': False, 'error': str(e)})
             if ui:
-                ui.messageBox(f"HTML Event Hatası: {str(e)}\n\n{traceback.format_exc()}", "Hata")
+                ui.messageBox('Eklenti hatası: %s\n\n%s' % (e, traceback.format_exc()), 'Hata')
+
 
 class PaletteClosedHandler(UserInterfaceGeneralEventHandler):
-    """Handles palette close event."""
     def __init__(self):
         super().__init__()
+
     def notify(self, args):
         pass
 
+
 def show_palette():
-    """Creates and displays the HTML5 UI Palette."""
+    """Creates and displays the HTML5 UI palette."""
     global app, ui
     app = adsk.core.Application.get()
     ui = app.userInterface
-    
-    # Check if palette already exists
     palette = ui.palettes.itemById(palette_id)
     if palette:
         palette.isVisible = True
         return
-        
-    # HTML File path
     html_file_path = os.path.join(current_dir, 'ui', 'index.html')
     if not os.path.exists(html_file_path):
-        ui.messageBox(f"Arayüz dosyası bulunamadı:\n{html_file_path}", "Dosya Hatası")
+        ui.messageBox('Arayüz dosyası bulunamadı:\n%s' % html_file_path, 'Dosya Hatası')
         return
-        
-    html_url = 'file:///' + html_file_path.replace('\\', '/')
-    
-    # Create Palette (Width: 620px, Height: 750px)
-    palette = ui.palettes.add(
-        palette_id,
-        'Planet Redüktör Tasarımcısı (Planetary Gearbox)',
-        html_url,
-        True,  # isVisible
-        True,  # showCloseButton
-        True,  # isResizable
-        640,
-        780
-    )
+    # ?host=fusion: arayüz, Fusion'un `adsk` nesnesi geç enjekte edilse bile hemen motor moduna geçer
+    from standalone.api import VERSION
+    html_url = 'file:///' + html_file_path.replace('\\', '/') + '?host=fusion&v=' + VERSION
+    title = 'Planet Redüktör Tasarımcısı (Planetary Gearbox)'
+    try:
+        # son argüman: Qt tarayıcısı (Autodesk'in önerdiği; fusionSendData Promise döndürür, arayüz donmaz)
+        palette = ui.palettes.add(palette_id, title, html_url, True, True, True, *PALETTE_SIZE, True)
+    except TypeError:
+        palette = ui.palettes.add(palette_id, title, html_url, True, True, True, *PALETTE_SIZE)
     palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateFloating
-    
-    # Register HTML Event Handler
     on_html_event = PaletteHTMLEventHandler()
     palette.incomingFromHTML.add(on_html_event)
     handlers.append(on_html_event)
-    
     on_closed = PaletteClosedHandler()
     palette.closed.add(on_closed)
     handlers.append(on_closed)
 
-class CommandCreatedEventHandler(CommandCreatedEventHandler):
-    """Handles toolbar button click to show the UI."""
+
+class ShowPaletteCommandHandler(CommandCreatedEventHandler):
+    """Toolbar button: shows the palette."""
     def __init__(self):
         super().__init__()
+
     def notify(self, args):
         try:
             show_palette()
         except Exception as e:
             if ui:
-                ui.messageBox(f"Komut Hatası: {str(e)}", "Hata")
+                ui.messageBox('Komut Hatası: %s' % e, 'Hata')
+
+
+def _tools_tab():
+    ws = ui.workspaces.itemById('FusionSolidEnvironment')
+    return ws.toolbarTabs.itemById(TOOLS_TAB) if ws else None
+
+
+def _add_toolbar_buttons(cmd_def):
+    """UTILITIES tab: own panel with a large (promoted) button; SOLID > CREATE: menu entry."""
+    tab = _tools_tab()
+    if tab:
+        panel = tab.toolbarPanels.itemById(panel_id)
+        if not panel:
+            panel = tab.toolbarPanels.add(panel_id, 'PLANET REDÜKTÖR', 'SolidScriptsAddinsPanel', False)
+        ctrl = panel.controls.itemById(cmd_id) or panel.controls.addCommand(cmd_def)
+        ctrl.isPromoted = True
+        ctrl.isPromotedByDefault = True
+    else:                                         # older Fusion: the ADD-INS panel of UTILITIES
+        addins = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
+        if addins and not addins.controls.itemById(cmd_id):
+            ctrl = addins.controls.addCommand(cmd_def)
+            ctrl.isPromoted = True
+    create = ui.allToolbarPanels.itemById(CREATE_PANEL)
+    if create and not create.controls.itemById(cmd_id):
+        create.controls.addCommand(cmd_def)
+
+
+def _remove_toolbar_buttons():
+    tab = _tools_tab()
+    if tab:
+        panel = tab.toolbarPanels.itemById(panel_id)
+        if panel:
+            panel.deleteMe()
+    for pid in ('SolidScriptsAddinsPanel', CREATE_PANEL):
+        panel = ui.allToolbarPanels.itemById(pid)
+        ctrl = panel.controls.itemById(cmd_id) if panel else None
+        if ctrl:
+            ctrl.deleteMe()
+
 
 def run(context):
-    """Fusion 360 Add-in Start entry point."""
+    """Fusion 360 add-in start."""
     global app, ui
     try:
+        _purge_own_modules()
         app = adsk.core.Application.get()
         ui = app.userInterface
-        
-        # When executed directly as a script, open the palette immediately
         show_palette()
-        
-        # Also register a ribbon button under CREATE panel
         cmd_defs = ui.commandDefinitions
-        cmd_def = cmd_defs.itemById(cmd_id)
-        if not cmd_def:
-            cmd_def = cmd_defs.addButtonDefinition(
-                cmd_id,
-                'Planet Redüktör Oluşturucu',
-                'Parametrik çok kademeli balıksırtı ve düz planet dişli redüktör çizer.',
-                ''
-            )
-            
-        on_cmd_created = CommandCreatedEventHandler()
+        old = cmd_defs.itemById(cmd_id)
+        if old:                                   # leftover of an older version (maybe without an icon)
+            old.deleteMe()
+        cmd_def = cmd_defs.addButtonDefinition(
+            cmd_id, 'Planet Redüktör',
+            'Planet redüktör tasarımcısını açar: otomatik boyutlandırma, mühendislik hesabı, AI asistan, '
+            'baskıya hazır STEP/STL.', os.path.join(current_dir, 'resources', 'planetary'))
+        on_cmd_created = ShowPaletteCommandHandler()
         cmd_def.commandCreated.add(on_cmd_created)
         handlers.append(on_cmd_created)
-        
-        # Add to SOLID > CREATE panel
-        solid_panel = ui.allToolbarPanels.itemById('SolidCreatePanel')
-        if solid_panel:
-            btn_ctrl = solid_panel.controls.itemById(cmd_id)
-            if not btn_ctrl:
-                solid_panel.controls.addCommand(cmd_def)
-                
+        _add_toolbar_buttons(cmd_def)
     except Exception as e:
         if ui:
-            ui.messageBox(f"Başlatma Hatası: {str(e)}\n\n{traceback.format_exc()}", "Eklenti Hatası")
+            ui.messageBox('Başlatma Hatası: %s\n\n%s' % (e, traceback.format_exc()), 'Eklenti Hatası')
+
 
 def stop(context):
-    """Fusion 360 Add-in Stop / Cleanup entry point."""
-    global app, ui
+    """Fusion 360 add-in stop / cleanup."""
+    global api
     try:
         if ui:
-            # Remove Palette
             palette = ui.palettes.itemById(palette_id)
             if palette:
                 palette.deleteMe()
-                
-            # Remove Toolbar Button Control
-            solid_panel = ui.allToolbarPanels.itemById('SolidCreatePanel')
-            if solid_panel:
-                btn_ctrl = solid_panel.controls.itemById(cmd_id)
-                if btn_ctrl:
-                    btn_ctrl.deleteMe()
-                    
-            # Remove Command Definition
+            _remove_toolbar_buttons()
             cmd_def = ui.commandDefinitions.itemById(cmd_id)
             if cmd_def:
                 cmd_def.deleteMe()
-                
         handlers.clear()
-    except Exception:
-        pass
-
-if __name__ == '__main__':
-    # Allows running as a standalone script
-    try:
-        run(None)
+        api = None
+        _purge_own_modules()
     except Exception:
         pass
