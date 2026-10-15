@@ -1,15 +1,39 @@
-<p align="center"><img src="ui/assets/logo-256.png" width="112" alt="Planetary Gearbox Generator logo"></p>
+<p align="center"><img src="ui/assets/logo-256.png" width="120" alt="Planetary Gearbox Generator logo"></p>
 
-# Autodesk Fusion 360 - Parametric Planetary Gearbox Generator
-### *Parametrik Planet Redüktör Tasarımcısı (Spur & Herringbone / Balıksırtı)*
+<h1 align="center">Planetary Gearbox Generator</h1>
+<p align="center"><b>Design, check and 3D-print planetary, Wolfrom and cycloidal gearboxes — in Fusion 360 or standalone.</b><br>
+<i>Planet, Wolfrom ve sikloidal redüktörleri tasarla, hesapla, 3D yazıcıda bas — Fusion 360 içinde veya bağımsız.</i></p>
 
-[![Autodesk Fusion 360](https://img.shields.io/badge/Autodesk-Fusion%20360-orange.svg?logo=autodesk)](https://www.autodesk.com/products/fusion-360)
-[![Python 3.x](https://img.shields.io/badge/Python-3.x-blue.svg?logo=python)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version 2.9.0](https://img.shields.io/badge/version-2.9.0-informational.svg)](CHANGELOG.md)
-[![Bilingual: EN / TR](https://img.shields.io/badge/Language-English%20%7C%20T%C3%BCrk%C3%A7e-brightgreen.svg)]()
+<p align="center">
+  <a href="https://www.autodesk.com/products/fusion-360"><img src="https://img.shields.io/badge/Autodesk-Fusion%20360-orange.svg?logo=autodesk" alt="Fusion 360"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.x-blue.svg?logo=python" alt="Python"></a>
+  <a href="https://dev.opencascade.org/"><img src="https://img.shields.io/badge/CAD-OpenCascade-5b8def.svg" alt="OpenCascade"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.9.0-informational.svg" alt="Version 2.9.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT"></a>
+  <img src="https://img.shields.io/badge/3MF-Creality%20K1%20ready-2ea44f.svg" alt="3MF">
+  <img src="https://img.shields.io/badge/Language-English%20%7C%20T%C3%BCrk%C3%A7e-brightgreen.svg" alt="EN / TR">
+</p>
 
-[🇬🇧 English](#-english) | [🇹🇷 Türkçe](#-türkçe)
+<p align="center"><img src="docs/images/hero.png" width="900" alt="Generated gearboxes: section, see-through housing"></p>
+
+<table align="center">
+<tr>
+<td align="center">⚙️<br><b>5 arrangements</b><br><sub>standard · rotating housing · speed-up · Wolfrom · cycloidal</sub></td>
+<td align="center">🦷<br><b>4 tooth types</b><br><sub>spur · herringbone · single helical · HCR</sub></td>
+<td align="center">📐<br><b>Real engineering</b><br><sub>ISO 6336 / VDI 2736 checks, auto sizing, expert mode</sub></td>
+<td align="center">🖨️<br><b>Print-ready</b><br><sub>STEP · STL · 3MF with slicer settings, calibration coupon</sub></td>
+</tr>
+<tr>
+<td align="center">🔓<br><b>Release plunger</b><br><sub>GN 617.1 spring index pin to free the output</sub></td>
+<td align="center">🧱<br><b>Mounting</b><br><sub>wall / side bracket, base stand, panel plate</sub></td>
+<td align="center">🎞️<br><b>Live motion</b><br><sub>joints & motion links in Fusion, 3D viewer standalone</sub></td>
+<td align="center">🤖<br><b>AI assistant</b><br><sub>describe the job, get a design</sub></td>
+</tr>
+</table>
+
+<p align="center">
+  <a href="#-english">🇬🇧 English</a> · <a href="#-türkçe">🇹🇷 Türkçe</a> · <a href="CHANGELOG.md">📝 Changelog</a>
+</p>
 
 ---
 
