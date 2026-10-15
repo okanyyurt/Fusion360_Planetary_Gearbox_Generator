@@ -6,12 +6,28 @@
 [![Autodesk Fusion 360](https://img.shields.io/badge/Autodesk-Fusion%20360-orange.svg?logo=autodesk)](https://www.autodesk.com/products/fusion-360)
 [![Python 3.x](https://img.shields.io/badge/Python-3.x-blue.svg?logo=python)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version 2.8.0](https://img.shields.io/badge/version-2.9.0-informational.svg)](CHANGELOG.md)
+[![Version 2.9.0](https://img.shields.io/badge/version-2.9.0-informational.svg)](CHANGELOG.md)
 [![Bilingual: EN / TR](https://img.shields.io/badge/Language-English%20%7C%20T%C3%BCrk%C3%A7e-brightgreen.svg)]()
 
 [🇬🇧 English](#-english) | [🇹🇷 Türkçe](#-türkçe)
 
 ---
+
+## 📸 Gallery / Galeri
+
+*Generated models, imported into Fusion 360 — complete, with a see-through housing and in section.*  
+*Üretilen modeller Fusion 360'ta — tam hali, saydam gövdeyle ve kesitte.*
+
+| Complete / Tam | See-through / Saydam gövde | Section / Kesit |
+|:---:|:---:|:---:|
+| <img src="docs/images/std_arm_color.png" width="260"> | <img src="docs/images/std_arm_ghost.png" width="260"> | <img src="docs/images/std_arm_section.png" width="260"> |
+| **Standard — arm output, release plunger, side bracket** | *Standart — kol çıkışı, boşa alma pimi, yan braket* | |
+| <img src="docs/images/ring_drum_color.png" width="260"> | <img src="docs/images/ring_drum_ghost.png" width="260"> | <img src="docs/images/ring_drum_section.png" width="260"> |
+| **Rotating housing — drum flange, base mount** | *Dönen gövde — tambur flanşı, taban montajı* | |
+| <img src="docs/images/wolfrom_color.png" width="260"> | <img src="docs/images/wolfrom_ghost.png" width="260"> | <img src="docs/images/wolfrom_section.png" width="260"> |
+| **Wolfrom 100:1 — stepped planets, self-locking** | *Wolfrom 100:1 — kademeli planet, kendiliğinden kilitli* | |
+| <img src="docs/images/cycloid_color.png" width="260"> | <img src="docs/images/cycloid_ghost.png" width="260"> | <img src="docs/images/cycloid_section.png" width="260"> |
+| **Cycloidal 25:1 — two discs, steel ring pins** | *Sikloidal 25:1 — iki disk, çelik halka pimleri* | |
 
 # 🇬🇧 English
 
