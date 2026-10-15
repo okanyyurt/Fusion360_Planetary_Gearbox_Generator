@@ -37,6 +37,8 @@ Projedeki önemli değişiklikler. Her sürüm önce İngilizce, sonra Türkçe.
   housings, covers, flanges and brackets 0.2 mm (about 15 % shorter print time).
 - **Logo** — a planetary gear set logo in the app header, the Fusion toolbar icons and the README; the header shows
   the version once.
+- **Offline Windows app** — `PlanetaryGearbox-2.9.0-win64.zip` on the release page: unzip and run, no Python or
+  internet needed (fonts bundled; `python packaging/build_release.py` builds it).
 
 ### 🇹🇷 Türkçe
 
@@ -70,6 +72,8 @@ Projedeki önemli değişiklikler. Her sürüm önce İngilizce, sonra Türkçe.
   flanş ve braketler 0.2 mm (baskı süresi ~%15 kısa).
 - **Logo** — uygulama başlığında, Fusion araç çubuğu ikonlarında ve README'de planet dişli takımı logosu; başlıkta
   sürüm bilgisi artık bir kez yazar.
+- **Çevrimdışı Windows uygulaması** — sürüm sayfasında `PlanetaryGearbox-2.9.0-win64.zip`: çıkar ve çalıştır,
+  Python veya internet gerekmez (yazı tipleri gömülü; `python packaging/build_release.py` ile derlenir).
 
 ## [2.8.0]
 

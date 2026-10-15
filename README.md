@@ -32,10 +32,24 @@
 </table>
 
 <p align="center">
-  <a href="#-english">🇬🇧 English</a> · <a href="#-türkçe">🇹🇷 Türkçe</a> · <a href="CHANGELOG.md">📝 Changelog</a>
+  <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest"><b>⬇️ Download (Windows, offline)</b></a> · <a href="#-english">🇬🇧 English</a> · <a href="#-türkçe">🇹🇷 Türkçe</a> · <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
 ---
+
+## ⬇️ Download / İndir
+
+**Windows app, works offline — no Python, no Fusion 360 needed.**  
+**Windows uygulaması, internetsiz çalışır — Python veya Fusion 360 gerekmez.**
+
+1. Download `PlanetaryGearbox-<version>-win64.zip` from the [latest release](https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest).  
+   [Son sürümden](https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest) `PlanetaryGearbox-<sürüm>-win64.zip` dosyasını indirin.
+2. Extract it anywhere and run `PlanetaryGearbox.exe`. / Bir klasöre çıkarın, `PlanetaryGearbox.exe`'yi çalıştırın.
+
+Windows 10/11 (64-bit) with the Edge WebView2 runtime (built into Windows 11). Only the optional AI assistant needs
+internet. Windows SmartScreen may warn because the exe is not code-signed: *More info › Run anyway*.  
+Windows 10/11 (64 bit), Edge WebView2 (Windows 11'de hazır). İnternet yalnızca isteğe bağlı AI asistan için gerekir.
+Exe imzalı olmadığından SmartScreen uyarabilir: *Ek bilgi › Yine de çalıştır*.
 
 ## 📸 Gallery / Galeri
 
