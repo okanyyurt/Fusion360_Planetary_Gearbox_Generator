@@ -226,7 +226,7 @@ const BEARING_CATALOG = {
 };
 
 // ─── Host Bridge (Fusion 360 / standalone desktop / browser) ─────────────────
-const UI_VERSION = '2.8.0';
+const UI_VERSION = '2.9.0';
 
 function fusionReady() {
   return typeof adsk !== 'undefined' && !!adsk && !!adsk.fusionSendData;
@@ -459,7 +459,7 @@ function showHostInfo(info, error) {
     st.hidden = false;
     st.className = 'badge ' + (info && info.success ? 'badge-success' : 'badge-danger');
     st.textContent = info && info.success
-      ? `v${info.version} · ${tr('hostConnected', 'motor bağlı')}` : tr('hostNoLink', 'bağlantı yok');
+      ? `v${info.version} · ${tr('hostConnected', 'motor bağlı')}` : `v${UI_VERSION} · ${tr('hostNoLink', 'bağlantı yok')}`;
     if (info && info.app_dir) st.title = info.app_dir;
   }
   const banner = document.getElementById('host_banner');
@@ -860,7 +860,7 @@ function contactRatio(stage, m) {
   const ga = Math.sqrt(Math.max(0, (rs + ha * m) ** 2 - (rs * Math.cos(pa)) ** 2)) +
              Math.sqrt(Math.max(0, (rp + ha * m) ** 2 - (rp * Math.cos(pa)) ** 2)) - a * Math.sin(pa);
   const eAlpha = ga / (Math.PI * m * Math.cos(pa));
-  const herring = document.querySelector('input[name="gear_type"]:checked').value === 'HERRINGBONE';
+  const herring = !['SPUR', 'HCR'].includes(document.querySelector('input[name="gear_type"]:checked').value);
   if (!herring) return { text: eAlpha.toFixed(2), title: `εα = ${eAlpha.toFixed(2)}` };
   const beta = (parseFloat(document.getElementById('helix_angle').value) || 25) * Math.PI / 180;
   const fw = parseFloat(document.getElementById('face_width').value) || 12;
@@ -904,6 +904,8 @@ function initActionButtons() {
       total_ratio: selectedConfig.total_ratio,
       stages: selectedConfig.stages,
       is_herringbone: document.querySelector('input[name="gear_type"]:checked').value === 'HERRINGBONE',
+    gear_type: document.querySelector('input[name="gear_type"]:checked').value,
+      gear_type: document.querySelector('input[name="gear_type"]:checked').value,
       helix_angle: parseFloat(document.getElementById('helix_angle').value) || 25.0,
       face_width: parseFloat(document.getElementById('face_width').value) || 12.0,
       pressure_angle: parseFloat(document.getElementById('pressure_angle').value) || 20.0,
@@ -1046,7 +1048,7 @@ function renderResult(res, mesh) {
     ...(cy ? [[tr('sumCycloid', 'Sikloid'), `${cy.n_pins} × Ø${cy.pin_d} @ R${cy.R} · e ${cy.e} · ${cy.n_out} × Ø${cy.d_out}`]] : []),
     ...(wf ? [[tr('sumWolfrom', 'Wolfrom dişleri'), `Zs${wf.zs} · Zp${wf.zp1}/${wf.zp2} · Zr${wf.zr1}/${wf.zr2} · ${wf.self_locking ? tr('sumLocking', 'kendiliğinden kilitli') : tr('sumNoLock', 'geri sürülebilir')}`]] : []),
     [tr('sumRatio', 'Oran'), `${s.total_ratio} : 1`],
-    [tr('sumType', 'Diş tipi'), s.herringbone ? tr('typeHerringbone', 'Balıksırtı') : tr('typeSpur', 'Düz')],
+    [tr('sumType', 'Diş tipi'), s.herringbone ? tr('typeHerringbone', 'Balıksırtı') : (s.helical ? tr('typeHelical', 'Tek helis') : (s.hcr ? tr('typeHcr', 'HCR') : tr('typeSpur', 'Düz')))],
     [tr('sumOuter', 'Dış çap'), `${s.outer_diameter} mm`],
     [tr('sumLength', 'Toplam boy'), `${s.overall_length} mm`],
     [s.arrangement === 'SPEED_UP' ? tr('engGen', 'Jeneratör') : tr('sumOutTorque', 'Çıkış torku'),
@@ -1428,6 +1430,7 @@ function collectParams() {
     sizing_mode: val('sizing_mode', 'AUTO'), max_od: val('max_od', 80), ratio_tol: val('ratio_tol', 3),
     strength_required: val('strength_required', true),
     is_herringbone: document.querySelector('input[name="gear_type"]:checked').value === 'HERRINGBONE',
+    gear_type: document.querySelector('input[name="gear_type"]:checked').value,
     helix_angle: val('helix_angle', 20), face_width: val('face_width', 12), pressure_angle: val('pressure_angle', 20),
     addendum_coef: val('addendum_coef', 1.0),
     profile_shift: val('profile_shift', 'AUTO') === 'CUSTOM' ? val('profile_shift_x', 0) : val('profile_shift', 'AUTO'),
@@ -1496,14 +1499,15 @@ function updateVisibility() {
       : (speedUp ? tr('hintArrSpeedUp', '') : tr('hintArrCarrier', ''));
   }
   // Wolfrom: one stepped-planet stage, spur teeth, cage carrier, output support chosen by the engine
-  ['group_stages', 'group_gear_type', 'group_helix_angle', 'group_carrier_type', 'group_profile_shift']
-    .forEach(id => show(id, !special));
+  ['group_stages', 'group_carrier_type', 'group_profile_shift'].forEach(id => show(id, !special));
+  show('group_gear_type', !cycloid);
+  show('group_helix_angle', !special);
   show('group_output_dia', !standalone || (!ring && outType !== 'FLANGE' && outType !== 'ARM'));
   show('group_out_hub', standalone && !special && (ring || outType === 'FLANGE' || outType === 'ARM'));
   show('group_hub_fastener', standalone && !special && ['FLANGE', 'ARM', 'DRUM_FLANGE', 'DRUM_ARM'].includes(outType));
   show('group_arm', standalone && armOut);
-  show('group_declutch', standalone && ((outType === 'ARM' && ['CARRIER', 'CYCLOID'].includes(arrangement))
-    || (outType === 'DRUM_ARM' && ['RING', 'WOLFROM'].includes(arrangement))));
+  show('group_declutch', standalone && ((['ARM', 'FLANGE'].includes(outType) && ['CARRIER', 'CYCLOID'].includes(arrangement))
+    || (['DRUM_ARM', 'DRUM_FLANGE'].includes(outType) && ['RING', 'WOLFROM'].includes(arrangement))));
   show('group_arm_thickness', val('arm_shape', 'FLAT') === 'FLAT');
   show('group_output_len', !standalone || outType === 'SHAFT_PRINTED' || outType === 'SHAFT_STEEL');
   show('group_rope_dia', standalone && outType === 'DRUM_WINCH');
@@ -1540,6 +1544,17 @@ function updateVisibility() {
   document.querySelectorAll('.single-carrier-only').forEach(e => { e.style.display = (!standalone || single) ? '' : 'none'; });
   show('group_shift_x', standalone && val('profile_shift', 'AUTO') === 'CUSTOM');
   show('group_mount', standalone);
+  const hcard = document.getElementById('card_helical');
+  if (hcard) {
+    // tooth types per arrangement: Wolfrom (stepped planets) only spur / HCR, cycloidal has no teeth
+    const allowed = !standalone ? ['HERRINGBONE', 'HELICAL', 'HCR', 'SPUR']
+      : (wolfrom ? ['HCR', 'SPUR'] : (cycloid ? [] : ['HERRINGBONE', 'HELICAL', 'HCR', 'SPUR']));
+    document.querySelectorAll('input[name="gear_type"]').forEach(r => {
+      const ok = allowed.includes(r.value);
+      r.closest('label').style.display = ok ? '' : 'none';
+      if (!ok && r.checked) { document.querySelector('input[name="gear_type"][value="SPUR"]').checked = true; }
+    });
+  }
   const expert = standalone && val('expert_mode', false);
   document.querySelectorAll('.expert-only').forEach(e => { e.style.display = expert ? '' : 'none'; });
   const lifeLbl = document.querySelector('label[for="target_life"]');

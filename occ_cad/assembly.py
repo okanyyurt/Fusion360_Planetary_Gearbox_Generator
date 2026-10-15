@@ -164,19 +164,31 @@ BRACKET_NAMES = {
 SWING_KEYS = ("output_arm", "arm_screw", "declutch_pin", "declutch_nut")      # members that sweep beyond the housing
 
 
+OUTPUT_TOP_KEYS = SWING_KEYS + ("declutch_collar", "declutch_cap")   # output members above the housing
+
+
 def _envelope(parts: List[Part]) -> Tuple[float, float, float]:
-    """(widest radius of the gearbox body, top of it, reach of an output arm) from the placed parts."""
-    r_env, z_up, reach = 0.0, 0.0, 0.0
+    """
+    (widest radius of the gearbox body, highest point a side bracket may reach, reach of an output arm). The side
+    bracket's back plate ends 1 mm below the lowest output member above the housing (drive collar, arm, release flange
+    disc), whatever their width: the turning output never meets the plate.
+    """
+    r_env, z_up, reach, z_out = 0.0, 0.0, 0.0, float("inf")
     for pt in parts:
         for i in range(pt.quantity):
             x0, y0, z0, x1, y1, z1 = K.bounding_box(K.transform(pt.shape, pt.placements[i]) if pt.placements
                                                     else pt.shape)
             r = max(abs(x0), abs(x1), abs(y0), abs(y1))
-            if pt.key in SWING_KEYS:
-                reach = max(reach, max(math.hypot(x, y) for x in (x0, x1) for y in (y0, y1)))
+            round_on_axis = abs(x0 + x1) < 1.0 and abs(y0 + y1) < 1.0      # disc, collar, cap: turn in place
+            if pt.key in OUTPUT_TOP_KEYS:
+                z_out = min(z_out, z0)
+                if round_on_axis:          # a turning disc must stay inside the wall plane too
+                    r_env = max(r_env, r)
+                elif pt.key in SWING_KEYS:
+                    reach = max(reach, max(math.hypot(x, y) for x in (x0, x1) for y in (y0, y1)))
             elif z1 > 0.0:
                 r_env, z_up = max(r_env, r), max(z_up, z1)
-    return r_env, z_up, reach
+    return r_env, min(z_up, z_out - 1.0), reach
 
 
 SWING_TEXT = {
@@ -200,7 +212,7 @@ def bracket_part(hd: Dict, motor: Dict, tie: Dict, flange_t: float, mount_t: flo
     kind = kind or "SIDE"
     r_env, z_up, reach = _envelope(parts or [])
     if kind == "SIDE":
-        shape, info = B.build_mount_bracket(hd, motor, tie, -flange_t, mount_t, r_env, z_up - 2.0)
+        shape, info = B.build_mount_bracket(hd, motor, tie, -flange_t, mount_t, r_env, z_up)
         if reach > info["offset"] and warnings is not None:
             a = 180.0 + 2.0 * math.degrees(math.asin(min(1.0, info["offset"] / reach)))
             warnings.append(SWING_TEXT[lang].format(L=reach, a=a))
@@ -255,7 +267,8 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
     tie = hd["tie"]
     motor = get_motor_info(p.motor_code)
     pa, bl, fw = p.pressure_angle, p.backlash, p.face_width
-    helix = p.helix if p.herringbone else 0.0
+    helix = p.helix if (p.herringbone or p.helical) else 0.0
+    B.HELIX_SINGLE = p.helical
     clr = D.CLEARANCE
     t_top = p.plate_t
     t_bot = max(2.5, round(0.75 * t_top * 2.0) / 2.0)
@@ -336,6 +349,21 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
             parts.append(Part(f"ring_housing_s{i + 1}", f"Ring_Gear_Housing_S{i + 1}",
                               names["housing_sec"].format(i=i + 1), "housing", g_housing, section, COLORS["housing"],
                               explode=[(0.0, 0.0, float(2 * i))]))
+    elif n_fixed and p.helical:
+        # one-piece ring: each stage's teeth twist with its planets, the gaps between the stages twist back
+        tw = 2.0 * B.herringbone_twist(fw, geo0.r_ring, helix)
+        pts = [(0.0, 0.0)]
+        for zk in z_planets[:n_fixed]:
+            pts += [(zk, 0.0), (zk + fw, -tw)]
+        pts.append((housing_len, -tw))
+        clean = [pts[0]]
+        for zz, aa in pts[1:]:
+            if zz - clean[-1][0] > 1e-6:
+                clean.append((zz, aa))
+        ring_body, _ = B.build_ring_section(geo0, pa, bl, [c[0] for c in clean], [c[1] for c in clean], hd,
+                                            make_housing, tie["hole"], male_top=True, female_bottom=flange_spigot)
+        parts.append(Part("ring_housing", "Ring_Gear_Housing", names["housing"] if make_housing else names["ring"],
+                          "housing", g_housing, ring_body, COLORS["housing"], explode=[(0.0, 0.0, 0.0)]))
     elif n_fixed:
         ring_body, _ = B.build_ring_spur(geo0, pa, bl, 0.0, housing_len, hd, make_housing, tie["hole"],
                                          male_top=True, female_bottom=flange_spigot)
@@ -611,7 +639,7 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
     summary = {
         "total_ratio": round(R["total_ratio"], 3),
         "stages": n_st,
-        "herringbone": p.herringbone,
+        "herringbone": p.herringbone, "helical": p.helical, "hcr": p.hcr,
         "module": R["module"],
         "z_ring": R["z_ring"],
         "housing_diameter": round(hd["body_d"], 1),
@@ -705,7 +733,9 @@ def _declutch_parts(p, out: Dict, R: Dict, z0: float, g_key: str, g_label: str, 
         Part("declutch_collar", "Declutch_Collar", "Drive collar (declutch)" if en else "Tahrik Bileziği (boşa alma)",
              g_key, g_label, collar, COLORS["carrier"], placements=[K.trsf_translate(0, 0, z0)],
              explode=[(0.0, 0.0, level + 3.5)], note="Omuz alta gelecek şekilde basın"),
-        Part("output_arm", "Output_Arm", f"{names['arm_round' if round_arm else 'arm_flat']} {size}" +
+        Part("output_arm", "Output_Arm", (("Release flange disc, 6 × M3 inserts" if en else
+                                            "Boşa alınabilen flanş diski, 6 × M3 burç") if p.arm_shape == "DISC" else
+                                           f"{names['arm_round' if round_arm else 'arm_flat']} {size}") +
              (" (free on the collar)" if en else " (bilezikte serbest)"), g_key, g_label, arm, COLORS["carrier"],
              placements=[K.trsf_translate(0, 0, z0 + lay["z_arm"])], explode=[(0.0, 0.0, level + 5.0)],
              note="Düz yüzü tablada basın; %40+ dolgu, 4+ duvar"),
@@ -753,8 +783,10 @@ def drum_declutch_parts(p, z0: float, screw_pts: List[Tuple[float, float]], fast
         Part("declutch_collar", "Declutch_Collar", "Drive ring (release)" if en else "Tahrik Halkası (boşa alma)",
              g_key, g_label, collar, COLORS["carrier"], placements=[K.trsf_translate(0, 0, z0)],
              explode=[(0.0, 0.0, level + 3.0)], note="Disk alta gelecek şekilde basın"),
-        Part("output_arm", "Output_Arm", ("Arm " if en else "Kol ") + size + (" (free on the ring)" if en else
-                                                                           " (halkada serbest)"),
+        Part("output_arm", "Output_Arm", ((("Release flange disc, 6 × M3 inserts" if en else
+                                             "Boşa alınabilen flanş diski, 6 × M3 burç") if p.arm_shape == "DISC" else
+                                            ("Arm " if en else "Kol ") + size) +
+                                           (" (free on the ring)" if en else " (halkada serbest)")),
              g_key, g_label, arm, COLORS["carrier"], placements=[K.trsf_translate(0, 0, z0 + lay["z_arm"])],
              explode=[(0.0, 0.0, level + 4.5)], note="Düz yüzü tablada basın; %40+ dolgu, 4+ duvar"),
         Part("declutch_cap", "Declutch_Cap", "Cap washer" if en else "Kapak Pulu", g_key, g_label, cap,
@@ -827,6 +859,7 @@ def _build_star_stage(p, out, lay, hd, tie, geo, st, centers, radial, pin_hole, 
         pin_len = float(fit[-1]) if fit and fit[-1] >= need - base_t + 2.0 else need - 0.4
     else:
         pin_len = need - 0.4
+    cut_note = (" — " + names["pin_cut"]) if p.pin_steel and not dowel_is_standard(pin_len) else ""
     pin = B.build_pin(pin_d, pin_len, flat=not p.pin_steel)
     ppr = None if p.pin_steel else K.trsf_rotate_axis((0, 0, 0), (1, 0, 0), -math.pi / 2.0)
     parts.append(Part(f"pin_s{n}", f"Pin_Stg{n}", f"{names['pin']} Ø{pin_d:g}×{pin_len:g} ({tag})", g_key, g_label,
@@ -834,7 +867,7 @@ def _build_star_stage(p, out, lay, hd, tie, geo, st, centers, radial, pin_hole, 
                       placements=[K.trsf_translate(x, y, z_b0) for x, y in centers],
                       explode=[(ux * 1.25, uy * 1.25, level + 2.4) for ux, uy in radial],
                       printable=not p.pin_steel, print_trsf=ppr,
-                      spec=f"ISO 8734 / DIN 6325 Ø{pin_d:g} m6 × {pin_len:g} mm" if p.pin_steel else "",
+                      spec=f"ISO 8734 / DIN 6325 Ø{pin_d:g} m6 × {pin_len:g} mm{cut_note}" if p.pin_steel else "",
                       note="" if p.pin_steel else "Düzlük alta gelecek şekilde yatay basın"))
     # drum bearing on the stub
     parts.append(Part("drum_bearing", f"Bearing_{out['bearing']}_Drum", f"{out['bearing']} {names['drum_bearing']}",
@@ -884,7 +917,14 @@ def _build_star_stage(p, out, lay, hd, tie, geo, st, centers, radial, pin_hole, 
                                    for x, y in join_pts], printable=False, spec="ISO 4032 M3"))
     else:
         extras = B.winch_rims(drum_r, rim, dz0, z_lt, chamfer=True) if winch else []
-        drum = B.build_drum_part(geo, pa, bl, [dz0, z_lu], [0.0, 0.0], drum_r, (z_lu, z_lt), out["pocket_r"],
+        if p.helical:
+            tw_h = 2.0 * B.herringbone_twist(fw, geo.r_ring, helix)
+            zs_d, an_d = [dz0, z0, z0 + fw, z_lu], [0.0, 0.0, -tw_h, -tw_h]
+            keep = [0] + [k for k in range(1, 4) if zs_d[k] - zs_d[k - 1] > 1e-6]
+            zs_d, an_d = [zs_d[k] for k in keep], [an_d[k] for k in keep]
+        else:
+            zs_d, an_d = [dz0, z_lu], [0.0, 0.0]
+        drum = B.build_drum_part(geo, pa, bl, zs_d, an_d, drum_r, (z_lu, z_lt), out["pocket_r"],
                                  db["width"], extras=extras, cuts=lid_cuts + rope)
         parts.append(Part("drum", "Rotating_Drum", dname, "housing", names["g_housing"], drum, COLORS["housing"],
                           explode=[(0.0, 0.0, level_d)], print_trsf=_flip_x(),

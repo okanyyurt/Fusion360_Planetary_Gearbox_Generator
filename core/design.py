@@ -183,6 +183,8 @@ class Params:
     shift_mode: str = "AUTO"        # profile shift: AUTO (balanced per stage), NONE (x = 0), CUSTOM (shift_x)
     shift_x: float = 0.0            # CUSTOM: sun shift of every stage (planet / ring: -x)
     mount: bool = False             # mounting bracket under the motor flange (any arrangement with a housing)
+    helical: bool = False           # single helical teeth (standard / speed-up arrangements)
+    hcr: bool = False               # high contact ratio spur teeth (long addendum, low pressure angle, eps >= 1.9)
     mount_type: str = ""            # SIDE (L, axis parallel to the surface), BASE (legs, axis normal), PANEL
     declutch: bool = False          # arm output: free arm on a collar, coupled by one removable release pin
     plate_t_asked: float = 0.0      # carrier plate thickness of the form (plate_t may be thicker: dowel_plate_t)
@@ -234,8 +236,11 @@ class Params:
             hold_h=max(0.0, _f(p, "hold_hours", 0.0)),
             housing=bool(p.get("generate_housing", True)) or str(p.get("arrangement") or "").upper() not in ("", "CARRIER"),
         )
-        herring = bool(p.get("is_herringbone", False))
+        gear_type = str(p.get("gear_type") or ("HERRINGBONE" if p.get("is_herringbone") else "SPUR")).upper()
+        herring = gear_type == "HERRINGBONE"
+        hcr = gear_type == "HCR"
         arrangement, out_type = normalize_output(p.get("arrangement"), p.get("output_type", "FLANGE"))
+        helical = gear_type == "HELICAL" and arrangement in ("CARRIER", "SPEED_UP", "RING")
         target_ratio = max(1.5, _f(p, "target_ratio", 25.0))
         drive_t = drive_n = 0.0
         if arrangement == "SPEED_UP":
@@ -246,6 +251,10 @@ class Params:
             load.motor_torque, load.motor_speed = drive_t / target_ratio, drive_n * target_ratio
         app = (app_load_from_payload(p, out_type, max(10.0, _f(p, "arm_length", 100.0)))
                if arrangement != "SPEED_UP" else app_load_from_payload({}, out_type, 0.0))
+        # a flange with the release: built as an arm output whose "arm" is a free flange disc (shape DISC)
+        release_flange = bool(p.get("declutch", False)) and (arrangement, out_type) in RELEASE_FLANGES
+        if release_flange:
+            out_type = RELEASE_FLANGES[(arrangement, out_type)]
         return Params(
             target_ratio=target_ratio,
             stages=stage_count(p),
@@ -262,9 +271,10 @@ class Params:
             motor_shaft_dia=_f(p, "motor_shaft_dia", motor.get("default_shaft_dia", 5.0)),
             motor_shaft_type=str(p.get("motor_shaft_type", motor.get("default_shaft_type", "ROUND"))),
             face_width=max(3.0, _f(p, "face_width", 12.0)),
-            helix=_f(p, "helix_angle", 20.0) if herring else 0.0,
+            helix=_f(p, "helix_angle", 20.0) if (herring or helical) else 0.0,
+            helical=helical,
             herringbone=herring,
-            pressure_angle=_f(p, "pressure_angle", 20.0),
+            pressure_angle=HCR_PRESSURE_ANGLE if hcr else _f(p, "pressure_angle", 20.0),
             backlash=_f(p, "backlash", 0.2),
             bearing_tol=_f(p, "bearing_tolerance", 0.08),
             pin_dia_custom=_f(p, "pin_dia", 5.0),
@@ -278,10 +288,10 @@ class Params:
             output_type=out_type,
             strength_required=bool(p.get("strength_required", True)),
             out_hub=str(p.get("out_hub", "AUTO")).upper().replace("ZZ", "ZZ"),
-            arm_shape=str(p.get("arm_shape", "FLAT")).upper(),
-            arm_length=max(10.0, _f(p, "arm_length", 100.0)),
-            arm_width=max(4.0, _f(p, "arm_width", 30.0)),
-            arm_thickness=max(2.0, _f(p, "arm_thickness", 8.0)),
+            arm_shape="DISC" if release_flange else str(p.get("arm_shape", "FLAT")).upper(),
+            arm_length=10.0 if release_flange else max(10.0, _f(p, "arm_length", 100.0)),
+            arm_width=30.0 if release_flange else max(4.0, _f(p, "arm_width", 30.0)),
+            arm_thickness=10.0 if release_flange else max(2.0, _f(p, "arm_thickness", 8.0)),
             arm_load=max(0.0, _f(p, "arm_load", 0.0)),
             mfg=str(p.get("mfg_preset", "FDM_3D")),
             load=load,
@@ -292,14 +302,15 @@ class Params:
             hub_fastener="INSERT" if str(p.get("hub_fastener", "NUT")).upper() == "INSERT" else "NUT",
             max_length=max(0.0, _f(p, "max_length", 0.0)),
             bed=(max(50.0, _f(p, "bed_x", 256.0)), max(50.0, _f(p, "bed_y", 256.0)), max(30.0, _f(p, "bed_z", 256.0))),
-            addendum=clamp_addendum(p.get("addendum_coef", 1.0) if p.get("addendum_coef") not in (None, "") else 1.0),
+            addendum=HCR_ADDENDUM if hcr else clamp_addendum(p.get("addendum_coef", 1.0)
+                                                             if p.get("addendum_coef") not in (None, "") else 1.0),
+            hcr=hcr,
             arrangement=arrangement,
             rope_dia=min(20.0, max(1.0, _f(p, "rope_dia", 4.0))),
             drive_torque=drive_t,
             drive_speed=drive_n,
             **_shift_param(p.get("profile_shift", "AUTO")),
-            declutch=bool(p.get("declutch", False)) and (arrangement, normalize_output(
-                arrangement, str(p.get("output_type", "FLANGE")).upper())[1]) in DECLUTCH_OUTPUTS,
+            declutch=bool(p.get("declutch", False)) and (arrangement, out_type) in DECLUTCH_OUTPUTS,
             mount=_mount_type(p) != "" and (bool(p.get("generate_housing", True)) or arrangement != "CARRIER"),
             mount_type=_mount_type(p),
             **app,
@@ -610,7 +621,13 @@ def drum_member(p: Params, hd: Dict, geo: StageGeometry, pin_d: float, code: Opt
             "hub_options": options, "suggest": None, "suggest_fits": False, "suggest_od": 0.0, **circles}
 
 
+HCR_ADDENDUM = 1.25          # high contact ratio spur: long teeth ...
+HCR_PRESSURE_ANGLE = 17.5    # ... and a lower pressure angle: two tooth pairs carry most of the time
+HCR_EPS = 1.9                # contact ratio both meshes must reach (>= 2 for most tooth sets)
+
 DECLUTCH_OUTPUTS = (("CARRIER", "ARM"), ("RING", "DRUM_ARM"), ("WOLFROM", "DRUM_ARM"), ("CYCLOID", "ARM"))
+RELEASE_FLANGES = {("CARRIER", "FLANGE"): "ARM", ("CYCLOID", "FLANGE"): "ARM", ("RING", "DRUM_FLANGE"): "DRUM_ARM",
+                   ("WOLFROM", "DRUM_FLANGE"): "DRUM_ARM"}
 
 
 def _mount_type(p: Dict) -> str:
@@ -618,6 +635,17 @@ def _mount_type(p: Dict) -> str:
     from core.layout import MOUNT_TYPES
     mt = str(p.get("mount_type") or ("SIDE" if p.get("mount_bracket") else "")).upper()
     return mt if mt in MOUNT_TYPES else ""
+
+
+MOTOR_AXIAL_N = {"NEMA17": 15.0, "NEMA23": 25.0, "NEMA34": 60.0, "775": 20.0, "540": 10.0}
+
+
+def motor_axial_limit(p: Params) -> float:
+    """Axial load the motor's own bearings take (datasheet ballpark), N — only checked with single helical teeth."""
+    if not p.helical:
+        return 0.0
+    code = str(p.motor_code).upper()
+    return next((v for k, v in MOTOR_AXIAL_N.items() if k in code), 15.0)
 
 
 def mount_spec(p: Params, hd: Dict) -> Optional[Dict]:
@@ -994,7 +1022,7 @@ def _make_option(module: float, z_ring: int, zs: int, p: Params, x: float, cache
         return cache[key]
     cache[key] = None
     zmin = z_min(p.pressure_angle)
-    eps_req = 1.05 if p.herringbone else 1.2
+    eps_req = 1.05 if (p.herringbone or p.helical) else (HCR_EPS if p.hcr else 1.2)
     n_list = [p.num_planets] if p.num_planets >= 2 else list(PLANET_CHOICES)
     if (z_ring - zs) % 2:
         return None
@@ -1030,7 +1058,8 @@ def _make_option(module: float, z_ring: int, zs: int, p: Params, x: float, cache
     if p.cage and not cage_ok and p.mode != "MANUAL":
         return None
     sd = StageDesign(geo=geo, num_planets=n, face_width=p.face_width, helix_deg=p.helix,
-                     herringbone=p.herringbone, bearing_code=bsel["code"], bearings_per_planet=bsel["n"],
+                     herringbone=p.herringbone, helical=p.helical, bearing_code=bsel["code"],
+                     bearings_per_planet=bsel["n"],
                      pin_dia=bsel["pin"], pin_steel=p.pin_steel, carrier_cage=p.cage, plate_t=p.plate_t,
                      clearance=CLEARANCE, mfg_error=MFG_ERROR.get(p.mfg, 0.02))
     opt = {"zs": zs, "zp": zp, "n": n, "ratio": 1.0 + z_ring / zs, "geo": geo, "bearing": bsel,
@@ -1976,7 +2005,7 @@ def _candidate(p: Params, od: float, m: float, zr: int, combo: List[Dict], ratio
     eng = analyze(designs, pe.load, out_member["check_d"], out_member["steel"], lang,
                   arm_spec(pe, out_member["hub_d"]), p.motor_shaft_dia, _nut_dia(p, out_member),
                   app_load_spec(pe, out_member), drum=drum_spec(p, out_member), reverse=p.reverse,
-                  mount=mount_spec(p, hd))
+                  mount=mount_spec(p, hd), motor_axial=motor_axial_limit(p))
     eng["load"] = load_verdict(pe, eng, out_member, ratio, len(combo), lang)
     eng["speedup"] = speedup_info(pe, eng, lang) if p.reverse else None
     # The search ranks by what a larger housing can fix (gears, automatic output hub); the candidate reports
@@ -2063,6 +2092,7 @@ WARN_TEXT = {
         "face_load": "Kademe {n}: yük diş genişliği boyunca eşit dağılmıyor (K_Hβ = {k:.2f}, pim eğikliği ~{f:.0f} µm) — geniş dişin bir kısmı yük taşımıyor. Daha dar diş + daha büyük modül, daha kalın pim / kafes taşıyıcı veya balıksırtı diş daha verimli.",
         "plate_dowel": "Taşıyıcı plakaları {a:g} → {b:g} mm kalınlaştırıldı: çelik pimler standart boyda tam oturur (kesmek / taşlamak gerekmez), plakalar da güçlenir.",
         "many_stages": "{n} kademe: toplam verim ~%{eta:.0f} (kademe başına ~%{e1:.0f}), redüktör boyu {L:.0f} mm; her ek kademe sürtünme, boşluk ve parça ekler (çıkış boşluğu esas olarak son kademeden gelir).",
+        "helical_thrust": "Tek helis: 1. kademede güneşin eksenel itmesi ~{f:.0f} N, motor mili rulmanının taşıyabileceği ~{lim:.0f} N'u aşıyor. Güneş bileziğinin altına / üstüne PTFE itme pulu koyun, helis açısını küçültün (10–15°) veya balıksırtı seçin.",
         "self_lock": " {i:.0f}:1 oranda çıkış elle neredeyse çevrilemez (pratikte kendini kilitler); motor sürücüsünü ani duruşlara karşı rampalı ayarlayın.",
     },
     "en": {
@@ -2098,6 +2128,7 @@ WARN_TEXT = {
         "face_load": "Stage {n}: the load is not uniform across the face width (K_Hβ = {k:.2f}, pin misalignment ~{f:.0f} µm) — part of the wide tooth carries nothing. Narrower teeth with a larger module, thicker pins / a cage carrier or herringbone teeth do better.",
         "plate_dowel": "Carrier plates thickened {a:g} → {b:g} mm: the steel pins are a standard length (no cutting / grinding) and the plates get stronger.",
         "many_stages": "{n} stages: overall efficiency ~{eta:.0f} % (~{e1:.0f} % per stage), gearbox length {L:.0f} mm; every extra stage adds friction, backlash and parts (the output backlash comes mainly from the last stage).",
+        "helical_thrust": "Single helix: the sun's axial thrust in stage 1 is ~{f:.0f} N, more than the ~{lim:.0f} N the motor shaft bearings take. Put PTFE thrust washers at the sun collar, use a smaller helix angle (10–15°) or choose herringbone.",
         "self_lock": " At {i:.0f}:1 the output can hardly be turned by hand (practically self-locking); ramp the motor driver against sudden stops.",
     },
 }
@@ -2184,7 +2215,8 @@ def resolve(payload: Dict) -> Dict:
         if star and geo.center_distance - pin_d / 2.0 - 1.0 < geo.tip_sun + 0.6:
             warn("ring_cage", n=n)
         sd = StageDesign(geo=geo, num_planets=n_pl, face_width=p.face_width, helix_deg=p.helix,
-                         herringbone=p.herringbone, bearing_code=code, bearings_per_planet=n_bear, pin_dia=pin_d,
+                         herringbone=p.herringbone, helical=p.helical, bearing_code=code,
+                         bearings_per_planet=n_bear, pin_dia=pin_d,
                          pin_steel=p.pin_steel, carrier_cage=cage_here, plate_t=p.plate_t, clearance=CLEARANCE,
                          sun_bore_dia=p.motor_shaft_dia if k == 0 else 0.0, inter_shaft_dia=0.0,
                          neck_dia=0.0 if k == 0 else 2.0 * (geo.root_sun - NECK_INSET), star=star,
@@ -2215,7 +2247,7 @@ def resolve(payload: Dict) -> Dict:
     arm = arm_spec(pe, out["hub_d"])
     eng = analyze(designs, pe.load, out["check_d"], out["steel"], lang, arm, p.motor_shaft_dia, _nut_dia(p, out),
                   app_load_spec(pe, out), drum=drum_spec(p, out), reverse=p.reverse,
-                  mount=mount_spec(p, hd))
+                  mount=mount_spec(p, hd), motor_axial=motor_axial_limit(p))
     eng["load"] = load_verdict(pe, eng, out, ratio, len(stages), lang)
     eng["speedup"] = speedup_info(pe, eng, lang) if p.reverse else None
     if eng["speedup"]:
@@ -2227,6 +2259,9 @@ def resolve(payload: Dict) -> Dict:
         if s_eng.get("k_hbeta", 1.0) >= FACE_LOAD_WARN and gear and min(gear) < 1.5:
             # only where the teeth are loaded: a lightly loaded stage shows a high factor without consequence
             warn("face_load", n=s_eng["index"], k=s_eng["k_hbeta"], f=s_eng["misalignment_um"])
+        thrust = next((c for c in s_eng["checks"] if c["name"] == "axial_thrust"), None)
+        if thrust and not thrust["ok"]:
+            warn("helical_thrust", f=thrust["value"], lim=thrust["limit"])
         for c in s_eng["checks"]:
             if c["ok"]:
                 continue

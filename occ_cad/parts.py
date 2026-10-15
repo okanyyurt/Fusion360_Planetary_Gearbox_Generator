@@ -27,8 +27,13 @@ def herringbone_twist(face_width: float, pitch_r: float, helix_deg: float) -> fl
     return ToothProfileGenerator.calculate_herringbone_twist_angle(face_width, pitch_r, helix_deg)
 
 
+HELIX_SINGLE = False   # set by assembly.generate: single helical teeth (the herringbone's first half, full face)
+
+
 def _gear_body(wire, z0: float, face_width: float, twist_mid: float):
-    """Düz dişli: extrude. Balıksırtı: alt yarı +twist, üst yarı geri dönüş (V)."""
+    """Düz dişli: extrude. Balıksırtı: alt yarı +twist, üst yarı geri dönüş (V). Tek helis: tüm genişlikte 2·twist."""
+    if abs(twist_mid) > 1e-9 and HELIX_SINGLE:
+        return K.twisted_solid(wire, [z0, z0 + face_width], [0.0, 2.0 * twist_mid])
     if abs(twist_mid) > 1e-9:
         return K.twisted_solid(wire, [z0, z0 + face_width / 2.0, z0 + face_width], [0.0, twist_mid, 0.0])
     return K.extrude(K.planar_face(wire), z0, z0 + face_width)
@@ -483,10 +488,17 @@ def build_declutch_arm(shape: str, length: float, width: float, thickness: float
     kalınsa havşa). Topuz çekilip çeyrek tur çevrilince pim yukarıda kalır, kol bilezik üzerinde serbest döner.
     """
     pl, lay = geo["plunger"], geo["lay"]
-    tools, hole_r, L = _arm_bar(shape, length, width, thickness, geo["boss_r"], h_a)
-    body = K.fuse(K.cylinder(geo["boss_r"], 0.0, h_a), tools, "boşa alma kolu", unify=True)
     x = -geo["r_c"]
-    cuts = [K.cylinder(geo["bore_r"], -1.0, h_a + 1.0), K.cylinder(hole_r, -1.0, h_a + 1.0, L, 0.0),
+    if shape == "DISC":      # release flange: a free disc with heat-set inserts for the user's part on top
+        r_i = geo["boss_r"] + 5.0
+        body = K.cylinder(r_i + 6.0, 0.0, h_a)
+        cuts = [K.cylinder(INSERT_R, h_a - INSERT_DEPTH, h_a + 1.0, *_polar_xy(r_i, math.pi / 6 + k * math.pi / 3))
+                for k in range(6)]
+    else:
+        tools, hole_r, L = _arm_bar(shape, length, width, thickness, geo["boss_r"], h_a)
+        body = K.fuse(K.cylinder(geo["boss_r"], 0.0, h_a), tools, "boşa alma kolu", unify=True)
+        cuts = [K.cylinder(hole_r, -1.0, h_a + 1.0, L, 0.0)]
+    cuts += [K.cylinder(geo["bore_r"], -1.0, h_a + 1.0),
             K.cylinder(pl["d2"] / 2.0 + 0.25, -1.0, h_a + 1.0, x, 0.0),
             _hex(x, 0.0, pl["s"] + 0.3, -1.0, pl["m"] + 0.2)]
     if h_a > lay["local_top"] + 0.01:

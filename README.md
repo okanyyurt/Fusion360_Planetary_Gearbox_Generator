@@ -1,10 +1,12 @@
+<p align="center"><img src="ui/assets/logo-256.png" width="112" alt="Planetary Gearbox Generator logo"></p>
+
 # Autodesk Fusion 360 - Parametric Planetary Gearbox Generator
 ### *Parametrik Planet Redüktör Tasarımcısı (Spur & Herringbone / Balıksırtı)*
 
 [![Autodesk Fusion 360](https://img.shields.io/badge/Autodesk-Fusion%20360-orange.svg?logo=autodesk)](https://www.autodesk.com/products/fusion-360)
 [![Python 3.x](https://img.shields.io/badge/Python-3.x-blue.svg?logo=python)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version 2.8.0](https://img.shields.io/badge/version-2.8.0-informational.svg)](CHANGELOG.md)
+[![Version 2.8.0](https://img.shields.io/badge/version-2.9.0-informational.svg)](CHANGELOG.md)
 [![Bilingual: EN / TR](https://img.shields.io/badge/Language-English%20%7C%20T%C3%BCrk%C3%A7e-brightgreen.svg)]()
 
 [🇬🇧 English](#-english) | [🇹🇷 Türkçe](#-türkçe)
@@ -143,8 +145,9 @@ python tests/test_ai.py                   # AI assistant against a fake Gemini s
 Requirements: Python 3.11–3.14, `pip install -r requirements-standalone.txt` (`cadquery-ocp-novtk`, `pywebview`).
 Paths with non-ASCII characters (e.g. `C:\Users\Okan Yeşilyurt\OneDrive\Belgeler`) are supported.
 
-### What's new in 2.8.0
-Wolfrom and cycloidal arrangements, a spring index plunger release for every arm output, mounting brackets for every
+### What's new in 2.9.0
+Single helical teeth and high contact ratio spur (HCR) as third and fourth tooth types, the release plunger also for
+flange outputs (a free flange disc). 2.8.0: Wolfrom and cycloidal arrangements, a spring index plunger release for every arm output, mounting brackets for every
 gearbox type (side / base stand / panel), expert mode (tooth temperature, cycle life, wear, creep). Full history:
 **[CHANGELOG.md](CHANGELOG.md)**.
 
@@ -180,7 +183,7 @@ PlanetaryGearboxGenerator/
 ├── resources/slicer_profiles/            # Creality K1 family printer / process / filament profiles
 ├── tools/make_slicer_profiles.py         # Rebuilds the slicer profiles with a local OrcaSlicer
 ├── tests/                                # test_standalone.py, test_requirements.py, test_ai.py
-└── ui/                                   # HTML5 UI (bilingual), app.js, i18n.js, viewer.js (three.js), assets/
+└── ui/                                   # HTML5 UI (bilingual), app.js, i18n.js, viewer.js (three.js), guide.js (user guide), assets/
 ```
 
 ---
@@ -315,8 +318,9 @@ Türkçe karakterli yollar (ör. `C:\Users\Okan Yeşilyurt\OneDrive\Belgeler`) d
 
 ---
 
-## 🆕 Sürüm 2.8.0'da yenilikler
-Wolfrom ve sikloidal düzenler, her kol çıkışında yaylı indeks pimiyle boşa alma, her redüktör tipine montaj braketi
+## 🆕 Sürüm 2.9.0'da yenilikler
+Üçüncü ve dördüncü diş tipi olarak tek helis ve yüksek temas oranlı düz dişli (HCR), flanş çıkışlarında da boşa alma (serbest
+flanş diski). 2.8.0: Wolfrom ve sikloidal düzenler, her kol çıkışında yaylı indeks pimiyle boşa alma, her redüktör tipine montaj braketi
 (yan / ayaklı taban / panel), uzman modu (diş sıcaklığı, çevrim ömrü, aşınma, sünme). Tüm geçmiş:
 **[CHANGELOG.md](CHANGELOG.md)**.
 

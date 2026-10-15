@@ -237,12 +237,15 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
         else:
             parts.append(bpart)
 
-    # kinematics: hub 1, discs orbit with the input and turn -1/(N-1), output -1/(N-1)
+    # kinematics: hub 1, discs orbit with the input and turn -1/(N-1), output -1/(N-1); a disc turns on its cam,
+    # so its "carrier" (the member it is jointed to in Fusion) is the input hub, spin relative to it
     w_out = -1.0 / (n - 1)
     spin = w_out - 1.0
     bodies = {"ground": {"type": "ground"}, "input": {"type": "axis", "factor": 1.0},
-              "disc_a": {"type": "planet", "orbit": 1.0, "spin": spin, "center": [e, 0.0], "stage": 1},
-              "disc_b": {"type": "planet", "orbit": 1.0, "spin": spin, "center": [-e, 0.0], "stage": 1},
+              "disc_a": {"type": "planet", "orbit": 1.0, "spin": spin, "carrier": "input", "center": [e, 0.0],
+                         "stage": 1},
+              "disc_b": {"type": "planet", "orbit": 1.0, "spin": spin, "carrier": "input", "center": [-e, 0.0],
+                         "stage": 1},
               "output": {"type": "axis", "factor": w_out, "stage": 1}}
     for part in parts:
         q = part.quantity

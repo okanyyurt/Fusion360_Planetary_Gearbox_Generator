@@ -3,6 +3,74 @@
 All notable changes of the Planetary Gearbox Generator. Versions follow `MAJOR.MINOR.PATCH`.
 Projedeki önemli değişiklikler. Her sürüm önce İngilizce, sonra Türkçe.
 
+## [2.9.0]
+
+### 🇬🇧 English
+
+- **Single helical teeth** — a third tooth type besides spur and herringbone (standard and speed-up arrangements):
+  quieter and a little stronger than spur (full-face overlap ratio, twice that of a herringbone half), the ring
+  housing stays one piece (the stages' teeth twist with their planets, the gaps twist back). The planets' axial forces
+  add up on the sun: stage 1's thrust is checked against the motor shaft bearings (NEMA17 ~15 N) with a warning
+  (thrust washers, smaller helix angle or herringbone).
+- **High contact ratio spur (HCR)** — a fourth tooth type: long teeth (h*a 1.25) and a 17.5° pressure angle, the
+  search keeps tooth sets with a contact ratio >= 1.9 on both meshes (typically 2.1–2.7): two tooth pairs carry most of
+  the time, nearly as quiet as helical, no axial thrust, as easy to print as spur.
+- **User guide** — a "?" button next to the language switch opens a bilingual manual with diagrams: quick start,
+  arrangements, the four tooth types (advantages / disadvantages, availability), outputs, the release plunger,
+  mounting brackets, expert mode, printing and assembly tips.
+- **Tooth types for every arrangement** — single helical now also in the rotating housing (one-piece helical drum),
+  HCR also in the Wolfrom (stepped planets with long teeth, contact ratio >= 1.9). Helical / herringbone are not offered
+  for the Wolfrom (the stepped planet's two gears mesh different rings) and the cycloidal drive has no teeth.
+- **Side bracket fix** — the back plate now ends 1 mm below the output members above the housing (drive collar, arm,
+  release flange disc) and stands outside every turning round part too (disc, collar, drum): nothing touches the plate
+  or the wall; arms report their free swing angle.
+- **Release for flange outputs** — the spring index plunger release now also works with the flange outputs of every
+  arrangement: a free flange disc with 6 heat-set inserts turns on the drive collar instead of an arm.
+- **No pins cut to length** — every steel dowel is now a standard ISO 8734 length in every arrangement: the Wolfrom
+  cage plates grow (<= 3 mm, like the standard cage carrier) until a standard pin spans both tooth sets, the cycloidal
+  output plate grows (<= 5 mm) until a standard output pin fits between plate and disc A (it used to need e.g.
+  Ø10×29.3 cut down from 30). The parts list still flags any pin that would have to be cut.
+- **Cycloidal motion in Fusion** — the discs are jointed to the eccentric hub (they were missing their carrier member,
+  so the joint setup stopped and turning the input moved only some parts).
+- **3MF plates** — parts keep 8 mm from the plate edge and 10 mm from each other (the 5 mm auto brim no longer runs
+  off the plate or merges two parts); only toothed parts and the calibration coupon use the fine layer height,
+  housings, covers, flanges and brackets 0.2 mm (about 15 % shorter print time).
+- **Logo** — a planetary gear set logo in the app header, the Fusion toolbar icons and the README; the header shows
+  the version once.
+
+### 🇹🇷 Türkçe
+
+- **Tek helis diş** — düz ve balıksırtının yanında üçüncü diş tipi (standart düzen ve hız artırıcı): düzden sessiz ve
+  biraz daha güçlü (tam genişlikte örtüşme oranı, balıksırtı yarısının iki katı); çember gövdesi tek parça kalır
+  (kademelerin dişleri planetleriyle birlikte döner, aradaki boşluklar geri döner). Planetlerin eksenel kuvvetleri
+  güneşte toplanır: 1. kademenin itmesi motor mili rulmanlarına karşı (NEMA17 ~15 N) kontrol edilir ve uyarılır (itme
+  pulu, daha küçük helis açısı veya balıksırtı).
+- **Yüksek temas oranlı düz dişli (HCR)** — dördüncü diş tipi: uzun diş (h*a 1.25) ve 17.5° basınç açısı; arama her
+  iki kavramada temas oranı >= 1.9 olan diş setlerini seçer (genelde 2.1–2.7): çoğu an iki diş çifti yük taşır, helise
+  yakın sessizlik, hiç eksenel itme yok, baskısı düz dişli kadar kolay.
+- **Kullanım kılavuzu** — dil düğmesinin yanındaki "?" butonu görselli, iki dilli bir kılavuz açar: hızlı başlangıç,
+  düzenler, dört diş tipi (avantaj / dezavantaj, hangi düzende), çıkışlar, boşa alma pimi, montaj braketleri, uzman
+  modu, baskı ve montaj ipuçları.
+- **Diş tipleri tüm düzenlerde** — tek helis artık dönen gövdede de (tek parça helisli tambur), HCR Wolfrom'da da
+  (uzun dişli kademeli planetler, temas oranı >= 1.9). Wolfrom'da helis / balıksırtı sunulmaz (kademeli planetin iki
+  dişlisi farklı çemberlerle kavrar); sikloidalde diş yoktur.
+- **Yan braket düzeltmesi** — sırt plakası artık gövdenin üstündeki çıkış parçalarının (tahrik bileziği, kol, boşa alma
+  flanş diski) 1 mm altında biter ve dönen tüm yuvarlak parçaların (disk, bilezik, tambur) da dışında durur: plakaya
+  veya duvara hiçbir şey değmez; kollar serbest dönüş açısını bildirir.
+- **Flanş çıkışlarında boşa alma** — yaylı indeks pimiyle boşa alma artık her düzenin flanş çıkışında da var: kol yerine
+  6 ısıl burçlu serbest bir flanş diski tahrik bileziğinde döner.
+- **Kısaltılan pim yok** — tüm düzenlerde her çelik pim artık standart ISO 8734 boyunda: Wolfrom'da kafes plakaları
+  (standart kafes taşıyıcıdaki gibi <= 3 mm) standart bir pim iki dişli setini geçene kadar, sikloidalde çıkış plakası
+  (<= 5 mm) standart çıkış pimi plaka ile A diski arasına sığana kadar kalınlaşır (önce ör. 30'dan kısaltılmış
+  Ø10×29.3 gerekiyordu). Parça listesi kesilmesi gereken pimi yine de belirtir.
+- **Fusion'da sikloidal hareket** — diskler eksantrik göbeğe eklemlenir (taşıyıcı üyeleri eksikti; eklem kurulumu
+  yarıda kalıyor, giriş döndürülünce yalnızca bazı parçalar dönüyordu).
+- **3MF tablaları** — parçalar tabla kenarından 8 mm, birbirinden 10 mm uzakta (5 mm otomatik brim artık tabladan
+  taşmaz, iki parçayı birleştirmez); ince katman yalnızca dişli parçalarda ve kalibrasyon parçasında, gövde, kapak,
+  flanş ve braketler 0.2 mm (baskı süresi ~%15 kısa).
+- **Logo** — uygulama başlığında, Fusion araç çubuğu ikonlarında ve README'de planet dişli takımı logosu; başlıkta
+  sürüm bilgisi artık bir kez yazar.
+
 ## [2.8.0]
 
 ### 🇬🇧 English

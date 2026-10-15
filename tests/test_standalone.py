@@ -575,6 +575,12 @@ def check_turning(res, degs=(23.0, 211.0), pair=None):
     `pair(key_a, key_b)`: yalnızca bu çiftler (balıksırtı helis yüzeyleri arasındaki boolean çok yavaş).
     """
     kin = res.kinematics
+    # the Fusion add-in joins every planet-type body (planets, cycloid discs) to its carrier member
+    bodies = kin["bodies"]
+    assert kin["input"] in bodies and bodies[kin["input"]]["type"] == "axis", kin["input"]
+    for name, b in bodies.items():
+        if b["type"] == "planet":
+            assert bodies.get(b.get("carrier"), {}).get("type") in ("axis", "ground"), f"{name}: taşıyıcı yok"
     names = [(p, i) for p in res.parts for i in range(p.quantity)]
     body = [p.bodies[i] if p.bodies else "ground" for p, i in names]
     for deg in degs:
@@ -1108,7 +1114,11 @@ def test_mount_types():
              ("dönen gövde", "SIDE", dict(stages_count=2, target_ratio=20, motor_torque=0.4, arrangement="RING",
                                           output_type="DRUM_FLANGE")),
              ("standart kol", "SIDE", dict(stages_count=2, target_ratio=25, motor_torque=0.4, output_type="ARM",
-                                           arm_length=150, arm_width=25)))
+                                           arm_length=150, arm_width=25)),
+             ("boşa alma flanşı", "SIDE", dict(stages_count=2, target_ratio=25, motor_torque=0.4,
+                                               output_type="FLANGE", declutch=True)),
+             ("Wolfrom tambur kolu", "SIDE", dict(arrangement="WOLFROM", target_ratio=100, output_type="DRUM_ARM",
+                                                  motor_torque=0.2, arm_length=150, arm_width=25, declutch=True)))
     for name, kind, kw in cases:
         p, c = payload(mount_type=kind, **kw)
         res = assembly.generate(p)
@@ -1126,11 +1136,19 @@ def test_mount_types():
             # the back plate stands outside the widest part: nothing of the gearbox reaches the wall
             wall = K.bounding_box(br.shape)[1] + B.MOUNT_BACK_T
             for pt in res.parts:
-                if pt.key in ("mount_bracket",) + assembly.SWING_KEYS:
+                if pt.key == "mount_bracket":
                     continue
                 for i in range(pt.quantity):
-                    y_min = K.bounding_box(_placed(pt, i))[1]
+                    bb = K.bounding_box(_placed(pt, i))
+                    if pt.key in assembly.OUTPUT_TOP_KEYS and not (abs(bb[0] + bb[3]) < 1.0 and abs(bb[1] + bb[4]) < 1.0):
+                        continue          # an arm / the plunger: above the plate, its swing is reported
+                    y_min = bb[1]
                     assert y_min >= wall + 1.0, (name, pt.key, y_min, wall)
+            # the plate ends below every output member above the housing (collar, arm, release disc)
+            z_plate = K.bounding_box(br.shape)[5]
+            outs = [K.bounding_box(_placed(pt, i))[2] for pt in res.parts if pt.key in assembly.OUTPUT_TOP_KEYS
+                    for i in range(pt.quantity)]
+            assert not outs or z_plate <= min(outs) - 0.9, (name, z_plate, min(outs))
             if "arm" in name:
                 assert any("~" in w and "°" in w for w in res.warnings), res.warnings
         out.append(f"{name}/{kind}")
@@ -1240,6 +1258,157 @@ def test_expert_mode():
           f"rapor; {'; '.join(special)} · {time.time() - t:.0f} s")
 
 
+def test_release_flange():
+    """Boşa alma flanş çıkışlarında da (standart, dönen gövde, Wolfrom, sikloidal): kol yerine 6 burçlu serbest flanş diski."""
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+    T = sys.modules[__name__]
+    for name, kw in (("standart", dict(stages_count=2, target_ratio=25, output_type="FLANGE")),
+                     ("dönen", dict(stages_count=2, target_ratio=20, arrangement="RING", output_type="DRUM_FLANGE")),
+                     ("Wolfrom", dict(arrangement="WOLFROM", target_ratio=100, output_type="DRUM_FLANGE")),
+                     ("sikloidal", dict(arrangement="CYCLOID", target_ratio=25, output_type="FLANGE"))):
+        t = time.time()
+        p, c = T.payload(declutch=True, motor_torque=0.3, **kw)
+        res = assembly.generate(p)
+        by = {x.key: x for x in res.parts}
+        assert "declutch_pin" in by and "Flanş diski" in by["output_arm"].label or "flanş diski" in by["output_arm"].label, by["output_arm"].label
+        names = [ch["name"] for st in c["engineering"]["stages"] for ch in st["checks"]]
+        assert "declutch_hole" in names and "arm_bending" not in names
+        T.check_solids(res); T.check_clashes(res)
+        T.check_turning(res, pair=lambda a, b: any(k in a or k in b for k in ("declutch", "output_arm", "arm_screw")))
+        arm = T._placed(by["output_arm"], 0)
+        gap = min(BRepExtrema_DistShapeShape(arm, T._placed(by[k], 0)).Value() for k in ("declutch_collar", "declutch_cap"))
+        print("  [OK] boşa alma flanşı:", name, by["output_arm"].label, round(gap, 2), abs(res.summary["overall_length"] - c["overall_length"]) < 0.6, round(time.time()-t))
+
+
+def test_helical():
+    """
+    Tek helis (3. diş tipi): örtüşme oranı tam genişlikte (balıksırtının iki katı), aynı yükte düzden küçük; 1. kademede
+    eksenel itme motor rulmanına karşı kontrol edilir ve aşılırsa uyarılır; CAD: tek parça helisli çember, geçerli katılar,
+    kavrama girişimsiz, çakışma yok, döndürünce planetler sürtmez.
+    """
+    t = time.time()
+    res_d = {}
+    for gt in ("SPUR", "HELICAL", "HERRINGBONE"):
+        res_d[gt] = design(dict(BASE, stages_count=2, target_ratio=25, motor_torque=0.4, gear_type=gt,
+                                is_herringbone=gt == "HERRINGBONE"))["candidates"][0]
+    eb = lambda c: c["engineering"]["stages"][0]["eps_beta"]
+    assert abs(eb(res_d["HELICAL"]) - 2.0 * eb(res_d["HERRINGBONE"])) < 1e-6 and eb(res_d["SPUR"]) == 0.0
+    assert res_d["HELICAL"]["outer_diameter"] <= res_d["SPUR"]["outer_diameter"]
+    ax = [c for c in res_d["HELICAL"]["engineering"]["stages"][0]["checks"] if c["name"] == "axial_thrust"]
+    assert ax and ax[0]["value"] > 0
+    ring = design(dict(BASE, stages_count=2, target_ratio=20, arrangement="RING", output_type="DRUM_FLANGE",
+                       gear_type="HELICAL"))["candidates"][0]          # rotating housing: helical too
+    assert any(c["name"] == "axial_thrust" for st in ring["engineering"]["stages"] for c in st["checks"])
+    wolf = design(dict(BASE, arrangement="WOLFROM", target_ratio=100, output_type="DRUM_FLANGE",
+                       gear_type="HELICAL"))["candidates"][0]          # stepped planets: no helix (spur)
+    assert not any(c["name"] == "axial_thrust" for st in wolf["engineering"]["stages"] for c in st["checks"])
+    p, c = payload(stages_count=2, target_ratio=25, motor_torque=0.2, gear_type="HELICAL")
+    res = assembly.generate(p)
+    assert res.summary["helical"] and not res.summary["herringbone"]
+    assert [x.key for x in res.parts if x.key.startswith("ring_housing")] == ["ring_housing"]
+    check_solids(res)
+    check_mesh(res)
+    check_clashes(res)
+    check_turning(res, degs=(17.0,), pair=lambda a, b: {a, b} in ({"planet_s1", "ring_housing"}, {"planet_s1", "sun_s1"}))
+    print(f"  [OK] tek helis: εβ {eb(res_d['HELICAL']):.2f} (balıksırtı {eb(res_d['HERRINGBONE']):.2f}), "
+          f"Ø{res_d['SPUR']['outer_diameter']:.0f} → Ø{res_d['HELICAL']['outer_diameter']:.0f}, eksenel itme "
+          f"{ax[0]['value']:.0f} N / {ax[0]['limit']:.0f} N, tek parça çember · {time.time() - t:.0f} s")
+
+
+def test_hcr():
+    """
+    Yüksek temas oranlı düz dişli (4. diş tipi): uzun diş + 17.5° basınç açısı, her iki kavramada εα >= 1.9, eksenel
+    itme yok; CAD geçerli, kavrama girişimsiz, çakışma yok.
+    """
+    t = time.time()
+    p, c = payload(stages_count=2, target_ratio=25, motor_torque=0.2, gear_type="HCR")
+    for st in c["engineering"]["stages"]:
+        assert st["eps_alpha_sp"] >= 1.9 and st["eps_alpha_pr"] >= 1.9, st
+        assert not any(ch["name"] == "axial_thrust" for ch in st["checks"])
+    assert abs(c["engineering"]["stages"][0]["addendum"] - 1.25) < 1e-9
+    res = assembly.generate(p)
+    assert res.summary["hcr"] and not res.summary["herringbone"] and not res.summary["helical"]
+    check_solids(res)
+    check_mesh(res)
+    check_clashes(res)
+    eps = [(st["eps_alpha_sp"], st["eps_alpha_pr"]) for st in c["engineering"]["stages"]]
+    print(f"  [OK] HCR düz dişli: {c['label'][:46]} · εα {', '.join(f'{a:.2f}/{b:.2f}' for a, b in eps)} · "
+          f"{time.time() - t:.0f} s")
+
+
+def test_gear_types_all():
+    """
+    Diş tipleri tüm düzenlerde: dönen gövdede tek helis (tek parça helisli tambur) ve HCR, Wolfrom'da HCR (temas oranı
+    >= 1.9); katılar geçerli, kavramalar girişimsiz, çakışma yok, döndürünce planet tambura / çembere sürtmez.
+    """
+    t = time.time()
+    out = []
+    for name, kw in (("dönen gövde / tek helis", dict(stages_count=2, target_ratio=20, arrangement="RING",
+                                                     output_type="DRUM_FLANGE", gear_type="HELICAL")),
+                     ("dönen gövde / HCR", dict(stages_count=2, target_ratio=20, arrangement="RING",
+                                               output_type="DRUM_FLANGE", gear_type="HCR")),
+                     ("Wolfrom / HCR", dict(arrangement="WOLFROM", target_ratio=100, output_type="DRUM_FLANGE",
+                                            gear_type="HCR"))):
+        p, c = payload(motor_torque=0.2, **kw)
+        res = assembly.generate(p)
+        check_solids(res)
+        check_clashes(res)
+        by = {x.key: x for x in res.parts}
+        rings = [k for k in ("ring_housing", "drum", "drum_s1") if k in by]
+        for k in ("planet_s1", "planet_s2"):
+            if k in by:
+                pl = _placed(by[k], 0)
+                for r in rings:
+                    assert K.volume(K.common(by[r].shape, pl)) < 1e-3, (name, k, r)
+        if "HCR" in name:
+            eps = [min(st.get("eps_alpha_sp", 9), st.get("eps_alpha_pr", 9)) for st in c["engineering"]["stages"]]
+            assert min(eps) >= 1.9 - 1e-6, (name, eps)
+        if "helis" in name:
+            assert res.summary["helical"]
+            check_turning(res, degs=(23.0,), pair=lambda a, b: {a, b} in ({"planet_s2", "drum"}, {"planet_s1", "ring_housing"}))
+        out.append(name)
+    print(f"  [OK] diş tipleri tüm düzenlerde: {', '.join(out)} · {time.time() - t:.0f} s")
+
+
+def test_standard_dowels():
+    """
+    Çelik pimler hazır alınır: tüm düzenlerde (standart, dönen gövde, Wolfrom, sikloidal) her ISO 8734 pim standart
+    boyda (kısaltma yok). Wolfrom'da kafes plakaları, sikloidalde çıkış plakası gerekirse kalınlaşır; uzunluk motoru
+    ile CAD aynı boyu verir, pim plakadan çıkmaz ve diskten / tabandan önce biter.
+    """
+    import re
+    from core.hardware import dowel_is_standard
+    t = time.time()
+    out = []
+    for name, kw in (("standart", dict(stages_count=2, target_ratio=25)),
+                     ("dönen gövde", dict(stages_count=2, target_ratio=20, arrangement="RING", output_type="DRUM_FLANGE")),
+                     ("Wolfrom fw12", dict(arrangement="WOLFROM", target_ratio=100, output_type="DRUM_FLANGE")),
+                     ("Wolfrom fw16", dict(arrangement="WOLFROM", target_ratio=90, output_type="DRUM_FLANGE", face_width=16)),
+                     ("sikloidal fw12", dict(arrangement="CYCLOID", target_ratio=25, output_type="FLANGE")),
+                     ("sikloidal fw9", dict(arrangement="CYCLOID", target_ratio=60, output_type="FLANGE", face_width=9))):
+        p, c = payload(motor_torque=0.3, **kw)
+        res = assembly.generate(p)
+        assert abs(res.summary["overall_length"] - c["overall_length"]) < 0.6, (name, res.summary["overall_length"],
+                                                                               c["overall_length"])
+        pins = []
+        for pt in res.parts:
+            m = re.search(r"ISO 8734 / DIN 6325 Ø([\d.]+) m6 × ([\d.]+) mm", pt.spec or "")
+            if m:
+                assert dowel_is_standard(float(m.group(2))) and "kısalt" not in pt.spec, (name, pt.key, pt.spec)
+                pins.append(f"Ø{m.group(1)}×{m.group(2)}")
+        assert pins, name
+        if "sikloidal" in name:
+            by = {x.key: x for x in res.parts}
+            pin = by["pin_s1"]
+            z_top = max(K.bounding_box(_placed(pin, i))[5] for i in range(pin.quantity))
+            z_bot = min(K.bounding_box(_placed(pin, i))[2] for i in range(pin.quantity))
+            pz1 = K.bounding_box(by["carrier_top_s1"].shape)[5]
+            dz0 = K.bounding_box(_placed(by["disc_a"], 0))[2]
+            assert z_top <= pz1 - 0.9 and z_bot <= dz0 + 1.0 + 1e-6, (name, z_top, pz1, z_bot, dz0)
+        out.append(f"{name} {'/'.join(sorted(set(pins)))}")
+    print(f"  [OK] standart pim boyları: {'; '.join(out)} · {time.time() - t:.0f} s")
+
+
 if __name__ == "__main__":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1281,6 +1450,11 @@ if __name__ == "__main__":
     test_cycloid()
     test_declutch()
     test_drum_declutch()
+    test_release_flange()
+    test_helical()
+    test_hcr()
+    test_gear_types_all()
+    test_standard_dowels()
     test_mount_types()
     test_expert_mode()
     test_fusion_bridge()

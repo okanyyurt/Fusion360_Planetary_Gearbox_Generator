@@ -23,7 +23,7 @@ from . import paths
 
 log = logging.getLogger(__name__)
 
-VERSION = "2.8.0"
+VERSION = "2.9.0"
 
 # Arayüzden çağrılabilen metotlar: her iki host (bağımsız uygulama + Fusion paleti) için ortak olanlar
 COMMON_METHODS = frozenset({

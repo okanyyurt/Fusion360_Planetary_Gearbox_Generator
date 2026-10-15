@@ -7,7 +7,7 @@ OpenCascade engine in a separate Python process and imported into the active des
 assembly. STL files, the engineering report and the parts list are written next to it.
 
 Author: Okan Yeşilyurt & Antigravity
-Version: 2.8.0
+Version: 2.9.0
 """
 import json
 import os

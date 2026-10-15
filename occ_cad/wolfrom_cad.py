@@ -69,7 +69,7 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
     hd, tie, sup, brg = c["hd"], c["hd"]["tie"], c["support"], c["bearing"]
     motor = get_motor_info(p.motor_code)
     pa, bl, fw, clr = p.pressure_angle, p.backlash, p.face_width, D.CLEARANCE
-    t_top = p.plate_t
+    t_top = W.plate_t(p, fw)
     t_bot = bottom_plate_thickness(t_top)
     z1 = clr + t_bot + clr
     z2 = z1 + fw + W.SET_GAP
@@ -99,7 +99,7 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
     # fixed ring + sleeve of the output support
     report(25)
     outline_body = B._lugged_plate(hd, True, 0.0, z_sleeve)
-    ring1_wire, _ = P.internal_gear(g1.z_ring, m, pa, bl, 0.0, tip_r=g1.tip_ring, form_r=g1.form_ring)
+    ring1_wire, _ = P.internal_gear(g1.z_ring, m, pa, bl, 0.0, tip_r=g1.tip_ring, form_r=g1.form_ring, addendum=g1.addendum)
     cuts = [K.extrude(K.planar_face(ring1_wire), -1.0, zr1_top)]
     rs_in = (sup["d"] + sup["D"]) / 4.0 + 0.5 if sup["kind"] == "BEARING" else sup["d"] / 2.0 - 1.5
     cuts.append(K.cylinder(rs_in, zr1_top - 0.01, zb0 + 0.01))
@@ -122,8 +122,10 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
 
     # stepped planet (identical parts, every one turned by its own phase)
     report(45)
-    gear1, _ = B.external_gear_solid(g1.z_planet, m, pa, bl, fw, z1, 0.0, -1.0, 0.0, g1.tip_planet, g1.form_planet)
-    gear2, _ = B.external_gear_solid(g2.z_planet, m, pa, bl, fw, z2, 0.0, -1.0, 0.0, g2.tip_planet, g2.form_planet)
+    gear1, _ = B.external_gear_solid(g1.z_planet, m, pa, bl, fw, z1, 0.0, -1.0, 0.0, g1.tip_planet, g1.form_planet,
+                                     g1.addendum)
+    gear2, _ = B.external_gear_solid(g2.z_planet, m, pa, bl, fw, z2, 0.0, -1.0, 0.0, g2.tip_planet, g2.form_planet,
+                                     g2.addendum)
     neck_r = min(g1.root_planet, g2.root_planet) - 0.2
     planet = K.fuse(gear1, [gear2, K.cylinder(neck_r, z1 + fw - 0.01, z2 + 0.01)], "kademeli planet")
     bi = get_bearing_info(brg["code"])
@@ -178,7 +180,7 @@ def generate(config: Dict, progress: Optional[Callable[[str, int], None]] = None
     ring2 = K.fuse(K.cylinder(r_seat, zr2_0, zb0 + sup["width"] + 0.01),
                    [K.cylinder(r_up, zb0 + sup["width"], z_lid0 + 0.01),
                     K.cylinder(lid_r, z_lid0, z_lid1)], "çıkış çemberi")
-    ring2_wire, _ = P.internal_gear(g2.z_ring, m, pa, bl, 0.0, tip_r=g2.tip_ring, form_r=g2.form_ring)
+    ring2_wire, _ = P.internal_gear(g2.z_ring, m, pa, bl, 0.0, tip_r=g2.tip_ring, form_r=g2.form_ring, addendum=g2.addendum)
     rcuts = [K.extrude(K.planar_face(ring2_wire), zr2_0 - 1.0, z_lid0)]
     bolt_r = max(g2.tip_ring + 3.0, r_up - 6.0) if lid_r > r_up else r_up - 5.0
     pts = [(bolt_r * math.cos(math.pi / 6 + k * math.pi / 3), bolt_r * math.sin(math.pi / 6 + k * math.pi / 3))

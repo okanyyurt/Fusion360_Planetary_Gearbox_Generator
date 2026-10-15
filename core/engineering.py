@@ -91,6 +91,7 @@ CHECK_LABELS = {
            "drum_bolts": "Tambur flanş vidaları (delik ezilmesi)",
            "drum_join": "Tambur yarıları birleşim vidaları (delik ezilmesi)",
            "mount_rods": "Montaj braketi — bağlantı cıvataları raf deliklerinde (ezilme)",
+           "axial_thrust": "Tek helis eksenel itme — motor mili rulmanı",
            "tooth_temp": "Diş sıcaklığı (VDI 2736, diş dibi)", "wear_sun": "Aşınma derinliği — güneş (VDI 2736)",
            "creep": "Durarak yük tutma — sünme (diş dibi)",
            "declutch_hole": "Boşa alma pimi — delik ezilmesi (bilezik / kol)",
@@ -111,6 +112,7 @@ CHECK_LABELS = {
            "drum_bolts": "Drum flange screws (hole bearing pressure)",
            "drum_join": "Drum half joint screws (hole bearing pressure)",
            "mount_rods": "Mounting bracket — tie rods in the shelf holes (bearing pressure)",
+           "axial_thrust": "Single helix axial thrust — motor shaft bearing",
            "tooth_temp": "Tooth temperature (VDI 2736, root)", "wear_sun": "Wear depth — sun (VDI 2736)",
            "creep": "Holding a load at rest — creep (root)",
            "declutch_hole": "Release pin — hole bearing pressure (collar / arm)",
@@ -174,6 +176,7 @@ class StageDesign:
     sun_bore_dia: float = 0.0          # bore inside the sun core (motor shaft / inter-stage shaft)
     inter_shaft_dia: float = 0.0       # printed D-shaft driving this sun (legacy), 0 = none
     neck_dia: float = 0.0              # sun printed in one piece with the previous carrier: neck diameter
+    helical: bool = False              # single helical teeth (axial thrust; full face per helix)
     star: bool = False                 # carrier fixed, ring output (rotating housing): i = Zr / Zs
     mfg_error: float = 0.02            # relative pin hole position error of the carrier, mm (face load factor)
 
@@ -227,13 +230,13 @@ def stage_factors(st: StageDesign, load: LoadCase) -> Dict:
     gm, sm = get_material(load.gear_material), get_material(load.struct_material)
     g = st.geo
     alpha = math.radians(g.pressure_angle)
-    beta = math.radians(st.helix_deg) if st.herringbone else 0.0
+    beta = math.radians(st.helix_deg) if (st.herringbone or st.helical) else 0.0
     d_s, d_p = 2 * g.r_sun, 2 * g.r_planet
     b = st.face_width
     m_n = g.module * math.cos(beta)
     cb3 = math.cos(beta) ** 3
     ftc = 2000.0 / (d_s * st.num_planets) * load_sharing(st.num_planets, gm["printed"])
-    eps_b = overlap_ratio(b, st.helix_deg, g.module, st.herringbone) if st.herringbone else 0.0
+    eps_b = overlap_ratio(b, st.helix_deg, g.module, st.herringbone) if (st.herringbone or st.helical) else 0.0
     f = {"ftc": ftc, "ratio": st.ratio, "rel": st.rel_speed, "zs_zp": g.z_sun / g.z_planet,
          "v_per_rpm": math.pi * d_s / 60000.0, "kv_a": 3.05 if gm["printed"] else 6.1, "eps_beta": eps_b,
          "bend": {}, "contact": {}}
@@ -517,9 +520,10 @@ def arm_checks(torque_ka: float, arm: Dict, load: LoadCase, key: bool = True) ->
     """
     sm = get_material(load.struct_material)
     out = []
-    w = arm_section_modulus(arm["shape"], arm["width"], arm["thickness"])
-    sigma = torque_ka * 1000.0 / w
-    out.append(Check("arm_bending", sigma, sm["sigma_S"], sm["sigma_S"] / sigma, load.target_sf, "MPa", 1.0))
+    if arm["shape"] != "DISC":           # a release flange disc has no lever
+        w = arm_section_modulus(arm["shape"], arm["width"], arm["thickness"])
+        sigma = torque_ka * 1000.0 / w
+        out.append(Check("arm_bending", sigma, sm["sigma_S"], sm["sigma_S"] / sigma, load.target_sf, "MPa", 1.0))
     if key:
         p_max = arm_key_pressure(torque_ka, arm["hub_d"])
         out.append(Check("arm_key", p_max, sm["sigma_S"], sm["sigma_S"] / p_max, load.target_sf, "MPa", 1.0))
@@ -709,7 +713,8 @@ def _capacity_scale(loads: List[Tuple[Dict, float, float]], checks: List[Check],
 def analyze(stages: List[StageDesign], load: LoadCase, output_shaft_dia: float = 0.0,
             output_shaft_steel: bool = False, lang: str = "tr", arm: Optional[Dict] = None,
             motor_shaft_dia: float = 0.0, hub_nut_dia: float = 0.0, app_load: Optional[Dict] = None,
-            drum: Optional[Dict] = None, reverse: bool = False, mount: Optional[Dict] = None) -> Dict:
+            drum: Optional[Dict] = None, reverse: bool = False, mount: Optional[Dict] = None,
+            motor_axial: float = 0.0) -> Dict:
     """
     Full stage-by-stage analysis. Returns a JSON-serializable dict. `app_load` (optional): what the gearbox
     has to move, {"torque": Nm, "force": N, "reserve", "bearing_c0": N, "shaft": {"d", "lever", "steel"}}.
@@ -731,6 +736,10 @@ def analyze(stages: List[StageDesign], load: LoadCase, output_shaft_dia: float =
         khb, kfb, f_by = face_load_factor(f, torque, (f["kv_a"] + f["v_per_rpm"] * n_rel0) / f["kv_a"])
         if k == 0 and motor_shaft_dia > 0:
             checks.append(motor_shaft_check(torque, motor_shaft_dia, load))
+        if k == 0 and st.helical and motor_axial > 0:
+            # single helix: the planets' axial forces add up on the sun and push the motor shaft (its bearings)
+            fa = st.num_planets * f["ftc"] * torque * math.tan(math.radians(st.helix_deg))
+            checks.append(Check("axial_thrust", fa, motor_axial, motor_axial / max(fa, 1e-9), 1.0, "N", 0.0))   # pass / fail: a thrust washer or a smaller helix angle fixes it
         n_c = speed / st.ratio                    # carrier speed (ring speed of a star stage)
         n_rel = speed * st.rel_speed
         stage_out.append({

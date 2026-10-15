@@ -127,6 +127,26 @@ def output_bearing(side_force: float, max_od: float) -> Optional[str]:
     return fits[-1] if fits else None
 
 
+OUT_PLATE_MAX = 5.0       # mm the output plate may grow so the output pins are a standard length
+
+
+def output_plate_t(t0: float, base: float, clr: float) -> float:
+    """
+    Output plate thickness. The steel output pins are pressed into it (their top 1 mm below its face) and reach
+    down through both discs: at least to 1 mm above the bottom of disc A, at most to 0.3 mm above the floor. That
+    window is only clr + 0.7 mm long, so the plate grows (<= OUT_PLATE_MAX) until a standard ISO 8734 length fits
+    it — no pins cut to length. `base` = floor top -> plate bottom.
+    """
+    from core.hardware import DOWEL_LENGTHS
+    for k in range(int(OUT_PLATE_MAX / 0.05) + 1):
+        t_o = round(t0 + 0.05 * k, 2)
+        hi = base + t_o - 1.3                  # pin bottom 0.3 above the floor
+        lo = base - clr + t_o - 2.0            # pin bottom 1 mm above the bottom of disc A
+        if any(lo - 1e-6 <= L <= hi + 1e-6 for L in DOWEL_LENGTHS):
+            return t_o
+    return t0
+
+
 def layout(p, cand: Dict) -> Dict:
     """Axial layout (z = 0 at the motor flange top), shared by the engine (length) and the CAD."""
     from core.design import CLEARANCE as clr
@@ -141,7 +161,7 @@ def layout(p, cand: Dict) -> Dict:
     zd1 = clr + bottom_plate_thickness(p.plate_t) + clr       # same height as a first sun: the collar clears the motor
     zd2 = zd1 + t + clr
     zo0 = zd2 + t + clr
-    t_o = max(p.plate_t, 5.0)
+    t_o = output_plate_t(max(p.plate_t_asked or p.plate_t, 5.0), zo0 - (zd1 - clr), clr)
     zo1 = zo0 + t_o
     z_hs = zo1 + clr
     ob = get_bearing_info(cand["out_bearing"])

@@ -6,7 +6,7 @@
 	"description":	{
 		"":	"Parametric planetary gearbox generator with automatic sizing, engineering checks (bending, contact, bearing life, torsion), herringbone/spur gears, bearings, output flange/shaft/arm, requirement solver, optional AI design assistant (Gemini) and print-ready STL export. Geometry by the shared OpenCascade engine."
 	},
-	"version":	"2.8.0",
+	"version":	"2.9.0",
 	"runOnStartup":	false,
 	"supportedOS":	"windows|mac",
 	"editEnabled":	true

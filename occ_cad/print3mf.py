@@ -30,8 +30,10 @@ from xml.sax.saxutils import quoteattr
 from . import kernel as K
 from .export import _move_into_place, _print_ready, _triangulate, ascii_name, ascii_temp_dir
 
-GAP = 6.0             # mm between parts on the plate
-MARGIN_XY = 4.0       # mm from the plate edge
+GAP = 10.0            # mm between parts on the plate: two 5 mm (auto) brims do not merge
+MARGIN_XY = 8.0       # mm from the plate edge: brim 5 mm + skirt distance stay on the plate
+TOOTHED = ("sun", "planet", "ring_housing", "drum_s", "disc_", "cal_")    # fine layers: teeth, calibration coupon
+STRUCT_LAYER = "0.2"  # housings, covers, flanges, brackets, plates: the K1 standard layer
 ORCA_KEYS = {"perimeters": "wall_loops", "fill_density": "sparse_infill_density",
              "fill_pattern": "sparse_infill_pattern", "layer_height": "layer_height"}
 NS = ('xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
@@ -53,8 +55,9 @@ def part_settings(part, module: float) -> Dict[str, str]:
         fill, pattern, walls = 80, "gyroid", walls + 1
     else:
         fill, pattern = 60, "gyroid"
+    toothed = part.gear or key == "drum" or key.startswith(TOOTHED)
     return {"perimeters": str(walls), "fill_density": f"{fill}%", "fill_pattern": pattern,
-            "layer_height": "0.12" if module <= 1.0 else "0.16"}
+            "layer_height": ("0.12" if module <= 1.0 else "0.16") if toothed else STRUCT_LAYER}
 
 
 def orca_settings(part, module: float) -> Dict[str, str]:
@@ -159,13 +162,17 @@ def write_3mf(result, path: str, module: float = 1.0, bed: Tuple[float, float] =
                         "w": x1 - x0, "d": y1 - y0, "x0": x0, "y0": y0})
         instances += [len(objects) - 1] * part.quantity
     order = sorted(range(len(instances)), key=lambda k: -objects[instances[k]]["w"] * objects[instances[k]]["d"])
-    slots = _pack_plates([(objects[instances[k]]["w"], objects[instances[k]]["d"]) for k in order], bed)
+    inner = (bed[0] - 2.0 * MARGIN_XY, bed[1] - 2.0 * MARGIN_XY)          # packed inside the edge margin
+    slots = _pack_plates([(objects[instances[k]]["w"], objects[instances[k]]["d"]) for k in order], inner)
     n_plates = max((sl[0] for sl in slots), default=0) + 1
     placed = []
     for (pl, cx, cy), k in zip(slots, order):
         ox, oy = plate_origin(pl, n_plates, bed)
         o = objects[instances[k]]
-        placed.append(((ox + cx - o["x0"] + MARGIN_XY, oy + cy - o["y0"] + MARGIN_XY), instances[k], pl))
+        # a part wider than the margin allows sits alone in its row / plate: centred instead
+        mx = MARGIN_XY if cx + o["w"] <= inner[0] + 1e-6 else max(0.0, (bed[0] - o["w"]) / 2.0)
+        my = MARGIN_XY if cy + o["d"] <= inner[1] + 1e-6 else max(0.0, (bed[1] - o["d"]) / 2.0)
+        placed.append(((ox + cx - o["x0"] + mx, oy + cy - o["y0"] + my), instances[k], pl))
 
     settings = project_settings(profile, material) if profile else None
     if settings is None:

@@ -396,8 +396,9 @@ def candidates(p, payload: Dict, lang: str, max_results: int = 10, time_budget: 
                 n = next((k for k in n_list if (zs + zr1) % k == 0), 0)
                 if not n:
                     continue
-                g1 = stage_geometry(zs, zp1, zr1, m, p.pressure_angle, p.backlash)
-                g2 = stage_geometry(max(zr2 - 2 * zp2, 6), zp2, zr2, m, p.pressure_angle, p.backlash)
+                g1 = stage_geometry(zs, zp1, zr1, m, p.pressure_angle, p.backlash, addendum=p.addendum)
+                g2 = stage_geometry(max(zr2 - 2 * zp2, 6), zp2, zr2, m, p.pressure_angle, p.backlash,
+                                    addendum=p.addendum)
                 sup = output_support(g2.root_ring)
                 ob = sup["code"]
                 zr_eq = math.ceil(((sup["D"] / 2.0 + 0.6) - 1.25 * m) * 2.0 / m)
@@ -405,7 +406,7 @@ def candidates(p, payload: Dict, lang: str, max_results: int = 10, time_budget: 
                 od = hd["envelope_d"]
                 if (cap > 0 and od > cap) or (best_od is not None and od > best_od * 1.15):
                     continue
-                if min(g1.eps_sun_planet, g1.eps_planet_ring, g2.eps_planet_ring) < 1.1:
+                if min(g1.eps_sun_planet, g1.eps_planet_ring, g2.eps_planet_ring) < (1.9 if p.hcr else 1.1):
                     continue
                 tip = max(g1.tip_planet, g2.tip_planet)
                 if 2.0 * g1.center_distance * math.sin(math.pi / n) - 2.0 * tip < max(0.5 * m, 0.8):
@@ -454,6 +455,16 @@ def candidates(p, payload: Dict, lang: str, max_results: int = 10, time_budget: 
                                             "çap veya başka modül deneyin.")})}
 
 
+def plate_t(p, fw: float) -> float:
+    """
+    Top cage plate (the bottom one follows it): the steel pins span bottom plate + both tooth sets + top plate, so
+    the plates are thickened like a standard cage carrier (core.design.dowel_plate_t, <= 3 mm) until a standard
+    ISO 8734 length fits — no pins cut to length.
+    """
+    from core.design import dowel_plate_t
+    return dowel_plate_t(p.plate_t_asked or p.plate_t, 2.0 * fw + SET_GAP, True, p.pin_steel)
+
+
 def length_of(p, cand: Dict) -> float:
     """Overall length of the CAD layout (wolfrom_cad uses the same numbers)."""
     from core.design import CLEARANCE
@@ -462,9 +473,10 @@ def length_of(p, cand: Dict) -> float:
     tie = cand["hd"]["tie"]
     flange_t = max(5.0, float(motor.get("pilot_depth", 0.0)) + 2.5, float(motor.get("screw_head_h", 3.0)) + 2.0,
                    tie["nut_m"] + 2.9)
-    t_bot = bottom_plate_thickness(p.plate_t)
     fw = cand["face_width"]
-    z_lid0 = CLEARANCE + t_bot + CLEARANCE + fw + SET_GAP + fw + CLEARANCE + p.plate_t + CLEARANCE
+    t_top = plate_t(p, fw)
+    t_bot = bottom_plate_thickness(t_top)
+    z_lid0 = CLEARANCE + t_bot + CLEARANCE + fw + SET_GAP + fw + CLEARANCE + t_top + CLEARANCE
     ob = {"width": cand["support"]["width"]}
     lid_t = 6.0
     arm = 0.0
@@ -531,8 +543,8 @@ def resolve(payload: Dict, p, lang: str) -> Dict:
     n = int(st["num_planets"])
     eta0 = basic_efficiency(p.load)
     eta, back = efficiencies(i0, eta0, math.sqrt(eta0))
-    g1 = stage_geometry(zs, zp1, zr1, m, p.pressure_angle, p.backlash)
-    g2 = stage_geometry(max(zr2 - 2 * zp2, 6), zp2, zr2, m, p.pressure_angle, p.backlash)
+    g1 = stage_geometry(zs, zp1, zr1, m, p.pressure_angle, p.backlash, addendum=p.addendum)
+    g2 = stage_geometry(max(zr2 - 2 * zp2, 6), zp2, zr2, m, p.pressure_angle, p.backlash, addendum=p.addendum)
     brg = _bearing_for(min(g1.root_planet, g2.root_planet), m, p.face_width, p.pin_steel,
                        st.get("bearing") or p.bearing, p.bearing_tol) or \
         _bearing_for(min(g1.root_planet, g2.root_planet), m, p.face_width, p.pin_steel, "AUTO", p.bearing_tol)
