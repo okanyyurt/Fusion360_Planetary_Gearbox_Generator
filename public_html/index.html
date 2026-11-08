@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planetary Gearbox Generator (PGG) - Parametric CAD & Engineering Suite</title>
+  
+  <!-- Meta Descriptions & SEO -->
+  <meta name="description" content="Design, analyze and 3D-print precision planetary, Wolfrom and cycloidal gearboxes. Autodesk Fusion 360 Add-In and standalone OpenCascade CAD suite with ISO 6336 checks and direct 3MF/STEP output.">
+  <meta name="keywords" content="Planetary Gearbox, Planet Dişli, Fusion 360 Add-In, Cycloidal Drive, Wolfrom Gearbox, Herringbone Gears, Balıksırtı Dişli, CAD Generator, ISO 6336, 3D Printing, 3MF, STEP">
+  <meta name="author" content="Okan Yeşilyurt, GrynTech">
+  <link rel="canonical" href="https://pgg.gryntech.net/">
+
+  <!-- OpenGraph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pgg.gryntech.net/">
+  <meta property="og:title" content="Planetary Gearbox Generator - Parametric CAD & Engineering Suite">
+  <meta property="og:description" content="Design ready-to-manufacture planetary, Wolfrom and cycloidal gearboxes with real engineering checks in Fusion 360 or standalone.">
+  <meta property="og:image" content="https://pgg.gryntech.net/images/social-preview.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://pgg.gryntech.net/">
+  <meta name="twitter:title" content="Planetary Gearbox Generator">
+  <meta name="twitter:description" content="Parametric Planetary, Wolfrom & Cycloidal Gearbox CAD Suite.">
+  <meta name="twitter:image" content="https://pgg.gryntech.net/images/social-preview.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+
+  <!-- Fonts & Stylesheet -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="#" class="nav-brand">
+        <img src="assets/logo.svg" alt="PGG Logo" class="nav-brand-logo">
+        <span class="nav-brand-title">
+          Planetary Gearbox <span class="version-pill">v2.9.0</span>
+        </span>
+      </a>
+
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#mimariler" data-i18n="nav_arch">Mimariler</a></li>
+        <li><a href="#kabiliyetler" data-i18n="nav_feat">Kabiliyetler</a></li>
+        <li><a href="#galeri" data-i18n="nav_gallery">CAD Galeri</a></li>
+        <li><a href="#hesaplayici" data-i18n="nav_calc">Hesaplayıcı</a></li>
+        <li><a href="#muhendislik" data-i18n="nav_standards">Mühendislik</a></li>
+        <li><a href="#kurulum" data-i18n="nav_install">Kurulum</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button id="langToggle" class="lang-btn" aria-label="Dili Değiştir / Change Language">
+          <span style="font-size:1.1rem">🇬🇧</span> EN
+        </button>
+
+        <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator" target="_blank" rel="noopener noreferrer" class="btn btn-github btn-sm">
+          <svg height="18" viewBox="0 0 16 16" width="18" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+          </svg>
+          <span data-i18n="btn_github">GitHub</span>
+        </a>
+
+        <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest" class="btn btn-primary btn-sm">
+          <span data-i18n="btn_download">⬇️ İndir</span>
+        </a>
+
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Menü">☰</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="container">
+      <div class="hero-pill">
+        <span class="hero-pill-indicator"></span>
+        <span data-i18n="hero_badge">🚀 Sürüm 2.9.0 · Tam Bağımsız CAD & Fusion 360 Add-In</span>
+      </div>
+
+      <h1 class="hero-title">
+        <span data-i18n="hero_title_1">Parametrik Planet, Wolfrom &</span><br>
+        <span class="highlight" data-i18n="hero_title_2">Sikloidal Redüktör Tasarımcısı</span>
+      </h1>
+
+      <p class="hero-subtitle" data-i18n="hero_desc">
+        Üretime hazır, tam montajlı çok kademeli planet redüktörleri saniyeler içinde tasarlayın. ISO 6336 diş mukavemeti analizi, VDI 2736 plastik kontrolü, dilimleyici hazır 3MF/STEP doğrudan üretim çıktıları ve tek tıkla çalışan bağımsız Windows uygulaması.
+      </p>
+
+      <div class="hero-cta">
+        <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest" class="btn btn-primary btn-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+          </svg>
+          <span data-i18n="btn_download">Windows İçin İndir (.exe)</span>
+        </a>
+
+        <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
+          <svg height="20" viewBox="0 0 16 16" width="20" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+          </svg>
+          <span data-i18n="btn_github">GitHub Reposu</span>
+        </a>
+
+        <a href="#hesaplayici" class="btn btn-secondary btn-lg">
+          ⚙️ <span data-i18n="btn_calc">Hesaplayıcıyı Başlat</span>
+        </a>
+      </div>
+
+      <div class="hero-badges">
+        <div class="badge-tag">⚙️ <strong data-i18n="tag_5arch">5 Redüktör Mimarisi</strong></div>
+        <div class="badge-tag">📐 <strong data-i18n="tag_iso">ISO 6336 / VDI 2736</strong></div>
+        <div class="badge-tag">🖨️ <strong data-i18n="tag_3mf">Doğrudan 3MF / STEP</strong></div>
+        <div class="badge-tag">🦷 <strong data-i18n="tag_teeth">Balıksırtı V-Twist Dişli</strong></div>
+        <div class="badge-tag">🤖 <strong data-i18n="tag_ai">Gemini AI Asistanı</strong></div>
+      </div>
+
+      <!-- Hero Visual CAD Display -->
+      <div class="hero-visual">
+        <div class="hero-visual-inner">
+          <img src="images/hero.png" alt="Parametric Gearboxes generated in Fusion 360 and Standalone CAD">
+          <div class="hero-overlay-tags">
+            <span class="hero-overlay-badge">B-Rep Solid CAD Engine</span>
+            <span class="hero-overlay-badge">OpenCascade + Fusion 360 API</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 5 Architectures Section -->
+  <section class="architectures" id="mimariler">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label" data-i18n="arch_label">KİNEMATİK DÜZENLER</span>
+        <h2 class="section-title" data-i18n="arch_title">5 Farklı Planet & Sikloid Mimarisi</h2>
+        <p class="section-subtitle" data-i18n="arch_subtitle">
+          Uygulamanızın tork, redüksiyon oranı ve montaj geometrisine tam uyumlu 5 farklı kinematik mekanizma.
+        </p>
+      </div>
+
+      <div class="arch-grid">
+        <!-- Arch 1 -->
+        <div class="arch-card">
+          <span class="arch-badge">STANDART</span>
+          <h3 class="arch-title">Taşıyıcı Çıkışlı Planet</h3>
+          <p class="arch-desc">
+            Sabit çember dişli gövdesi, güneş dişliden giriş ve planet taşıyıcı kafesten çıkış. En yaygın endüstriyel çözüm.
+          </p>
+          <div class="arch-formula">i = 1 + (Z_r / Z_s)</div>
+          <div class="arch-specs">
+            <span>Oran: 3:1 - 10:1</span>
+            <span>Verim: ~97%</span>
+          </div>
+        </div>
+
+        <!-- Arch 2 -->
+        <div class="arch-card">
+          <span class="arch-badge">TAMBUR / TEKERLEK</span>
+          <h3 class="arch-title">Dönen Çember Gövde</h3>
+          <p class="arch-desc">
+            Sabit taşıyıcı mafsalı ve dışarıdan dönen çember gövde yapısı. AGV tekerlekleri, konveyörler ve vinç tamburları için idealdir.
+          </p>
+          <div class="arch-formula">i = (Z_s + Z_r) / Z_r</div>
+          <div class="arch-specs">
+            <span>Oran: 2:1 - 9:1</span>
+            <span>Kompakt Tahrik</span>
+          </div>
+        </div>
+
+        <!-- Arch 3 -->
+        <div class="arch-card">
+          <span class="arch-badge">HIZLANDIRICI</span>
+          <h3 class="arch-title">Hız Artırıcı Çoğaltıcı</h3>
+          <p class="arch-desc">
+            Giriş taşıyıcı kafesten verilir, çıkış yüksek devirli güneş dişliden alınır. Rüzgar türbinleri ve volan jeneratörleri için tasarlanmıştır.
+          </p>
+          <div class="arch-formula">i = 1 / [1 + (Z_r / Z_s)]</div>
+          <div class="arch-specs">
+            <span>Oran: 0.1 - 0.33</span>
+            <span>Yüksek Hız Çıkış</span>
+          </div>
+        </div>
+
+        <!-- Arch 4 -->
+        <div class="arch-card">
+          <span class="arch-badge">ULTRA YÜKSEK ORAN</span>
+          <h3 class="arch-title">Wolfrom (3K) Diferansiyel</h3>
+          <p class="arch-desc">
+            Biri sabit, diğeri dönen çift çember dişli arasındaki mikro diş farkıyla tek kademede 30:1'den 500:1'e kadar devasa redüksiyon.
+          </p>
+          <div class="arch-formula">i = 1 / [1 - (Z_r1·Z_p2)/(Z_p1·Z_r2)]</div>
+          <div class="arch-specs">
+            <span>Oran: 30:1 - 500:1+</span>
+            <span>Tek Kademe Eksenel</span>
+          </div>
+        </div>
+
+        <!-- Arch 5 -->
+        <div class="arch-card">
+          <span class="arch-badge">SIFIR BOŞLUK</span>
+          <h3 class="arch-title">Sikloidal Redüktör</h3>
+          <p class="arch-desc">
+            Kam eksantrik rulmanlı sikloid disk, pimli çember ve tahrik disk pimleri. Yüksek şok darbesi dayanımı ve sıfır boşluk (zero backlash).
+          </p>
+          <div class="arch-formula">i = Z_pin - 1</div>
+          <div class="arch-specs">
+            <span>Oran: 10:1 - 89:1+</span>
+            <span>Robotik Mafsal</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Capabilities & Engineering Features -->
+  <section class="features" id="kabiliyetler">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label" data-i18n="feat_label">MÜHENDİSLİK GÜCÜ</span>
+        <h2 class="section-title" data-i18n="feat_title">Profesyonel CAD & Hesaplama Yetenekleri</h2>
+        <p class="section-subtitle" data-i18n="feat_subtitle">
+          Sadece bir 3D çizici değil; gerçek mühendislik standartları, malzeme analizi ve tolerans yönetimi bir arada.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🧠</div>
+          <h3>Akıllı Kinematik Sentez</h3>
+          <p>
+            Eş eksenlilik şartı (Z_r = Z_s + 2·Z_p) ve eşit açılı planet montaj kuralı ((Z_s + Z_r) % N = 0) otomatik doğrulanır. Komşu planet dişlilerin birbiriyle temas etmesini önleyen emniyet boşlukları anında kontrol edilir.
+          </p>
+          <div class="feature-card-meta">Geometrik Kinematik Motoru</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🦷</div>
+          <h3>Balıksırtı (Herringbone) Geometrisi</h3>
+          <p>
+            V-twist profili sayesinde helisel dişlilerin yarattığı eksenel itme kuvvetlerini tamamen sıfırlar. Kendi kendini merkezler, titreşimsiz sessiz çalışır ve 3D baskıda katman kayması riskini ortadan kaldırır.
+          </p>
+          <div class="feature-card-meta">Sıfır Eksenel İtme Kuvveti</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>ISO 6336 & VDI 2736 Analizi</h3>
+          <p>
+            Diş dibi eğilme gerilmesi (Lewis/ISO 6336) ve Hertz yüzey temas basıncı (pitting) analizi. PLA, PETG, ABS, PA-CF ve POM termoplastikler için sıcaklık ve aşınma emniyet katsayıları hesaplanır.
+          </p>
+          <div class="feature-card-meta">Gerçek Mukavemet Doğrulaması</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚙️</div>
+          <h3>ISO 281 Rulman & Pim Ömrü</h3>
+          <p>
+            DIN 471 / 6799 segman kanalları, ISO 8734 standart taşlanmış çelik pimler ve DIN/ISO bilyalı rulman kütüphanesi (688ZZ, 608ZZ, 623ZZ, MR105). L10h dinamik rulman ömrü hesaplanır.
+          </p>
+          <div class="feature-card-meta">Katalog Standartları Entegrasyonu</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🖨️</div>
+          <h3>Doğrudan Slicer-Ready 3MF Çıktısı</h3>
+          <p>
+            Creality K1, Bambu Lab X1/P1 ve Prusa MK4 için optimize edilmiş katman yükseklikleri, duvar sayıları ve dolgu profilleri içeren 3MF çıktıları. STEP, STL ve DXF dışa aktarımı.
+          </p>
+          <div class="feature-card-meta">Üretime Hazır Katı Modeller</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>Gemini AI Tasarım Asistanı</h3>
+          <p>
+            Gereksinimlerinizi doğal dille yazın (ör. "NEMA 23 motorla 35 Nm tork üretecek 2 kademeli redüktör tasarla"). Yapay zeka tüm parametreleri saniyeler içinde hesaplayıp CAD arayüzüne yükler.
+          </p>
+          <div class="feature-card-meta">LLM Tabanlı Otomatik Boyutlandırma</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tooth Types Breakdown -->
+  <section class="tooth-types">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">DİŞLİ GEOMETRİLERİ</span>
+        <h2 class="section-title">4 Gelişmiş Dişli Geometrisi Seçeneği</h2>
+        <p class="section-subtitle">
+          İmalat yönteminiz ve dinamik gereksinimlerinize uygun en doğru diş profilini tek tıkla seçin.
+        </p>
+      </div>
+
+      <div class="tooth-grid">
+        <div class="tooth-card">
+          <div class="tooth-card-title">
+            <span>Balıksırtı (Herringbone)</span>
+            <span class="tooth-badge badge-rec">3D Baskı İçin İdeal</span>
+          </div>
+          <p class="tooth-desc">
+            V-twist zıt helis açısıyla eksenel itme kuvvetini sıfırlar. Yüksek tork, sessiz çalışma ve kendi kendini merkezleme sağlar.
+          </p>
+          <ul class="tooth-list">
+            <li>Eksenel yük oluşturmaz</li>
+            <li>Sessiz ve pürüzsüz kavrama</li>
+            <li>3D baskıda kılavuz segman gerektirmez</li>
+          </ul>
+        </div>
+
+        <div class="tooth-card">
+          <div class="tooth-card-title">
+            <span>Düz Dişli (Spur)</span>
+            <span class="tooth-badge badge-std">Klasik Standart</span>
+          </div>
+          <p class="tooth-desc">
+            Klasik 20° evolvent diş profili. Kolay imalat, düşük tolerans hassasiyeti ve hızlı montaj olanağı sunar.
+          </p>
+          <ul class="tooth-list">
+            <li>En yüksek mekanik verim (~98%)</li>
+            <li>Eksenel kuvvet sıfır</li>
+            <li>CNC freze veya tel erozyonla kolay üretim</li>
+          </ul>
+        </div>
+
+        <div class="tooth-card">
+          <div class="tooth-card-title">
+            <span>Tek Helis (Single Helical)</span>
+            <span class="tooth-badge badge-std">Yüksek Yük Kapasitesi</span>
+          </div>
+          <p class="tooth-desc">
+            Açılı diş teması ile daha yüksek kavrama oranı ve yüksek tork kapasitesi. Eksenel kuvvetler için baskı yatakları önerilir.
+          </p>
+          <ul class="tooth-list">
+            <li>Daha yüksek temas yüzeyi</li>
+            <li>Titreşimsiz güç iletimi</li>
+            <li>Yüksek devirli giriş kademeleri için uygun</li>
+          </ul>
+        </div>
+
+        <div class="tooth-card">
+          <div class="tooth-card-title">
+            <span>Yüksek Kavrama Oranlı (HCR)</span>
+            <span class="tooth-badge badge-rec">Ağır Hizmet</span>
+          </div>
+          <p class="tooth-desc">
+            Derinleştirilmiş diş formu sayesinde aynı anda 2 ve daha fazla diş çifti sürekli temas halindedir. Diş kırılma direncini katlar.
+          </p>
+          <ul class="tooth-list">
+            <li>Kavrama oranı (ε > 2.0)</li>
+            <li>Yükü birden fazla dişe dağıtır</li>
+            <li>Yüksek şok darbelerinde üstün koruma</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAD Model Gallery (Interactive 3D Viewer Experience) -->
+  <section class="gallery-section" id="galeri">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label" data-i18n="gallery_label">3 BOYUTLU CAD MODELLERİ</span>
+        <h2 class="section-title" data-i18n="gallery_title">Üretilmiş Modelleri Keşfedin</h2>
+        <p class="section-subtitle" data-i18n="gallery_subtitle">
+          Tam model, saydam gövde (ghost) ve teknik kesit görünümleriyle tüm mekanizmanın iç anatomisini inceleyin.
+        </p>
+      </div>
+
+      <!-- Model Select Tabs -->
+      <div class="gallery-tabs-models">
+        <button class="gallery-tab-btn active" data-model="std">Standart Planet</button>
+        <button class="gallery-tab-btn" data-model="wolfrom">Wolfrom (3K)</button>
+        <button class="gallery-tab-btn" data-model="cycloid">Sikloidal Redüktör</button>
+        <button class="gallery-tab-btn" data-model="ring_drum">Dönen Gövde Tambur</button>
+      </div>
+
+      <!-- Viewer Container -->
+      <div class="gallery-viewer-card">
+        <div class="gallery-view-controls">
+          <div>
+            <h3 id="galleryTitle" style="font-size:1.15rem; font-weight:700;">Standart Planet Redüktör (Taşıyıcı Çıkışlı)</h3>
+            <p id="galleryDesc" style="font-size:0.85rem; color:var(--text-muted); margin-top:2px;">
+              Sabit çember dişli gövdesi, güneş dişli girişi ve taşıyıcı kafes çıkışı. 3:1 - 10:1 kademe oranı.
+            </p>
+          </div>
+
+          <div class="view-subtabs">
+            <button class="view-subtab-btn active" data-view="color">🎨 Tam Model</button>
+            <button class="view-subtab-btn" data-view="ghost">👻 Saydam Gövde</button>
+            <button class="view-subtab-btn" data-view="section">📐 Teknik Kesit</button>
+          </div>
+        </div>
+
+        <div class="gallery-viewer-stage">
+          <div class="gallery-image-container">
+            <img id="galleryImg" src="images/std_arm_color.png" alt="Planet Gearbox CAD Assembly">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Kinematics Simulator & Calculator -->
+  <section class="calculator-section" id="hesaplayici">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label" data-i18n="calc_label">CANLI DİNAMİK SİMÜLATÖR</span>
+        <h2 class="section-title" data-i18n="calc_title">Kinematik & Redüksiyon Hesaplayıcı</h2>
+        <p class="section-subtitle" data-i18n="calc_subtitle">
+          Diş sayılarını ve modülü girin; eş eksenlilik, montaj kuralları ve planet boşluğunu canlı animasyonla görün.
+        </p>
+      </div>
+
+      <div class="calc-wrapper">
+        <!-- Input Controls -->
+        <div class="calc-inputs">
+          <h3>⚙️ Kinematik Parametreler</h3>
+
+          <div class="calc-form-group">
+            <label class="calc-label" for="calcArrangement">Redüktör Mimarisi</label>
+            <select id="calcArrangement" class="calc-select">
+              <option value="standard" selected>Standart Planet (Güneş Giriş, Taşıyıcı Çıkış)</option>
+              <option value="drum">Dönen Çember Gövde (Tambur/Tekerlek)</option>
+              <option value="speedup">Hız Artırıcı Çoğaltıcı (Taşıyıcı Giriş, Güneş Çıkış)</option>
+              <option value="wolfrom">Wolfrom (3K) Diferansiyel Planet</option>
+              <option value="cycloid">Sikloidal Redüktör (Eksantrik Kam Disk)</option>
+            </select>
+          </div>
+
+          <div class="calc-row-2">
+            <div class="calc-form-group">
+              <label class="calc-label" for="calcModule">Modül (m) <span class="hint">mm</span></label>
+              <input type="number" id="calcModule" class="calc-input" value="1.5" step="0.25" min="0.5" max="10">
+            </div>
+
+            <div class="calc-form-group">
+              <label class="calc-label" for="calcCount">Planet Sayısı (N) <span class="hint">adet</span></label>
+              <input type="number" id="calcCount" class="calc-input" value="3" min="2" max="6">
+            </div>
+          </div>
+
+          <div class="calc-row-2">
+            <div class="calc-form-group">
+              <label class="calc-label" for="calcSun">Güneş Diş Sayısı (Z_s)</label>
+              <input type="number" id="calcSun" class="calc-input" value="12" min="8" max="100">
+            </div>
+
+            <div class="calc-form-group">
+              <label class="calc-label" for="calcPlanet">Planet Diş Sayısı (Z_p)</label>
+              <input type="number" id="calcPlanet" class="calc-input" value="18" min="8" max="100">
+            </div>
+          </div>
+
+          <div class="calc-row-2">
+            <div class="calc-form-group">
+              <label class="calc-label" for="calcRpm">Giriş Hızı <span class="hint">RPM</span></label>
+              <input type="number" id="calcRpm" class="calc-input" value="1500" step="50">
+            </div>
+
+            <div class="calc-form-group">
+              <label class="calc-label" for="calcTorque">Giriş Torku <span class="hint">Nm</span></label>
+              <input type="number" id="calcTorque" class="calc-input" value="1.5" step="0.5">
+            </div>
+          </div>
+
+          <div style="font-size:0.8rem; color:var(--text-dark); margin-top:14px; font-family:var(--font-mono);">
+            * Eş eksenlilik şartı: Z_r = Z_s + 2·Z_p<br>
+            * Montaj kuralı: (Z_s + Z_r) % N = 0
+          </div>
+        </div>
+
+        <!-- Real-Time Metrics & Dynamic Canvas -->
+        <div class="calc-outputs">
+          <!-- Status Banner -->
+          <div id="calcStatusCard" class="calc-status-card valid">
+            <div class="status-icon" id="statusIcon">✓</div>
+            <div>
+              <div class="status-title" id="statusTitle">Montaj Kuralları Doğrulandı</div>
+              <div class="status-desc" id="statusDesc">
+                (12 + 48) = 60, 3 gezegene tam bölünür. Diş kavrama açısı ve boşluk kusursuz.
+              </div>
+            </div>
+          </div>
+
+          <!-- Metrics Grid -->
+          <div class="calc-metrics-grid">
+            <div class="metric-item">
+              <div class="metric-label">Çember Diş (Z_r)</div>
+              <div class="metric-value" id="valRingTeeth">48</div>
+            </div>
+
+            <div class="metric-item">
+              <div class="metric-label">Redüksiyon Oranı (i)</div>
+              <div class="metric-value" id="valRatio">5.00 : 1</div>
+            </div>
+
+            <div class="metric-item">
+              <div class="metric-label">Çıkış Hızı</div>
+              <div class="metric-value"><span id="valOutRpm">300.0</span> <span class="metric-unit">RPM</span></div>
+            </div>
+
+            <div class="metric-item">
+              <div class="metric-label">Çıkış Torku (T_out)</div>
+              <div class="metric-value"><span id="valOutTorque">7.3</span> <span class="metric-unit">Nm</span></div>
+            </div>
+
+            <div class="metric-item">
+              <div class="metric-label">Taksimat Çapları</div>
+              <div style="font-size:0.85rem; font-family:var(--font-mono); color:var(--text-cyan); line-height:1.4;">
+                Güneş: <span id="valPitchSun">Ø 18.0</span><br>
+                Planet: <span id="valPitchPlanet">Ø 27.0</span><br>
+                Çember: <span id="valPitchRing">Ø 72.0</span>
+              </div>
+            </div>
+
+            <div class="metric-item">
+              <div class="metric-label">Planet Emniyet Boşluğu</div>
+              <div class="metric-value" id="valClearance">1.82 mm</div>
+            </div>
+          </div>
+
+          <!-- Animated Gear Rotation Visualizer -->
+          <div class="gear-canvas-wrap">
+            <span class="canvas-overlay-tag">CANLI KİNEMATİK DİŞLİ ANİMASYONU</span>
+            <canvas id="gearCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Engineering Standards & Technical Formulas -->
+  <section class="standards-section" id="muhendislik">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label" data-i18n="standards_label">STANDARTLAR VE ANALİZ</span>
+        <h2 class="section-title" data-i18n="standards_title">Gerçek Standartlara Dayalı Mukavemet Kontrolleri</h2>
+        <p class="section-subtitle" data-i18n="standards_subtitle">
+          Tasarımınız sadece CAD'de güzel görünmekle kalmaz; gerçek yükler altında kırılmayacak şekilde doğrulanır.
+        </p>
+      </div>
+
+      <div class="standards-grid">
+        <div class="standard-card">
+          <span class="standard-code">ISO 6336 / DIN 3990</span>
+          <h3>Diş Dibi Eğilme Gerilmesi (Bending Stress)</h3>
+          <p>
+            Maksimum çıkış torkunda diş dibinde meydana gelen teğetsel gerilme (Lewis & ISO 6336 metodu) malzeme akma sınırıyla karşılaştırılır.
+          </p>
+          <div class="formula-box">
+            σ_F = (F_t / (b · m)) · Y_F · Y_S · K_A · K_V ≤ σ_FP
+          </div>
+        </div>
+
+        <div class="standard-card">
+          <span class="standard-code">HERTZ CONTACT STRESS</span>
+          <h3>Yüzey Basıncı & Pitting Emniyeti</h3>
+          <p>
+            Diş profillerinin birbiriyle temas ettiği çizgi boyunca oluşan Hertz temas basıncı hesaplanır. Yüzey ezilme ve çukurlaşma (pitting) riski önlenir.
+          </p>
+          <div class="formula-box">
+            σ_H = Z_H · Z_E · Z_ε · √[(F_t / (d1 · b)) · (u+1)/u]
+          </div>
+        </div>
+
+        <div class="standard-card">
+          <span class="standard-code">VDI 2736 BLATT 2</span>
+          <h3>Termoplastik Dişli Standartları</h3>
+          <p>
+            3D baskılı dişliler için (PLA, PETG, ABS, PA12-CF, POM) sürtünme ısınması ve sıcaklığa bağlı mukavemet düşümü VDI 2736 ile hesaplanır.
+          </p>
+          <div class="formula-box">
+            ϑ_z = ϑ_0 + P_v / (k · A) | S_F,th ≥ 1.3
+          </div>
+        </div>
+
+        <div class="standard-card">
+          <span class="standard-code">ISO 281</span>
+          <h3>Rulman Ömrü (L10h Bearing Rating)</h3>
+          <p>
+            Planet pimi üzerine binen radyal reaksiyon kuvvetleri ve bağıl dönüş devriyle ISO 281 bilyalı rulman yorulma ömrü saat olarak belirlenir.
+          </p>
+          <div class="formula-box">
+            L_10h = (10⁶ / (60 · n)) · (C / P)³ ≥ Hedef Saat
+          </div>
+        </div>
+
+        <div class="standard-card">
+          <span class="standard-code">DIN 743 / DIN 6885</span>
+          <h3>Şaft Burulma & Kama Yuvası Emniyeti</h3>
+          <p>
+            Çıkış milinin burulma gerilmesi, D-kesit veya DIN 6885 paralel kama yuvası gerilme yığılma faktörleri dikkate alınarak denetlenir.
+          </p>
+          <div class="formula-box">
+            τ_t = (16 · T) / (π · d³) ≤ τ_em
+          </div>
+        </div>
+
+        <div class="standard-card">
+          <span class="standard-code">GN 617.1 MECHANISM</span>
+          <h3>İndeks Pistonlu Yaylı Çıkış Serbest Bırakma</h3>
+          <p>
+            Gerektiğinde motoru sökmeden çıkış flanşını boşa almak için entegre yaylı indeksleme pimi yuvası ve emniyet kilidi tasarımı.
+          </p>
+          <div class="formula-box">
+            GN 617.1-M12x1.5 Çelik İndeks Pimi Standardı
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Explanatory SVG Diagrams -->
+  <section class="svg-diagrams">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">TEKNİK DETAYLAR</span>
+        <h2 class="section-title">Entegre Mühendislik Şemaları</h2>
+        <p class="section-subtitle">
+          Program içinde yer alan interaktif görsel açıklamalar, kullanıcıyı her adımda doğru seçime yönlendirir.
+        </p>
+      </div>
+
+      <div class="diagrams-grid">
+        <div class="diagram-card">
+          <div class="diagram-img-wrap">
+            <img src="assets/herringbone_vs_spur.svg" alt="Herringbone vs Spur Gears">
+          </div>
+          <div class="diagram-card-body">
+            <h4>Balıksırtı ve Düz Dişli Karşılaştırması</h4>
+            <p>V-twist diş profilinin eksenel kuvvetleri nasıl dengelediği ve kendi kendini nasıl merkezlediği.</p>
+          </div>
+        </div>
+
+        <div class="diagram-card">
+          <div class="diagram-img-wrap">
+            <img src="assets/assembly_condition.svg" alt="Assembly Condition Rule">
+          </div>
+          <div class="diagram-card-body">
+            <h4>Eşit Açılı Montaj Kuralı</h4>
+            <p>(Z_s + Z_r) % N = 0 denkleminin diş profillerinin aynı anda birbirine geçişindeki kritik rolü.</p>
+          </div>
+        </div>
+
+        <div class="diagram-card">
+          <div class="diagram-img-wrap">
+            <img src="assets/multistage_carrier.svg" alt="Multi-stage Carrier Connection">
+          </div>
+          <div class="diagram-card-body">
+            <h4>Çok Kademeli Taşıyıcı Akuple</h4>
+            <p>1. kademe taşıyıcı kafesinden 2. kademe güneş dişlisine tork iletim yapısı ve yekpare gövde.</p>
+          </div>
+        </div>
+
+        <div class="diagram-card">
+          <div class="diagram-img-wrap">
+            <img src="assets/shaft_types.svg" alt="Motor Shaft Interface Types">
+          </div>
+          <div class="diagram-card-body">
+            <h4>Motor Şaftı ve Bağlantı Tipleri</h4>
+            <p>D-şaft, çift D-şaft, kamalı mil (DIN 6885) ve pres-geçme sıkı tolerans seçenekleri.</p>
+          </div>
+        </div>
+
+        <div class="diagram-card">
+          <div class="diagram-img-wrap">
+            <img src="assets/bearing_assembly.svg" alt="Bearing & Circlip Assembly">
+          </div>
+          <div class="diagram-card-body">
+            <h4>Rulman ve Segman Montajı</h4>
+            <p>DIN 471 segman kanalları, fatura dayanma yüzeyleri ve bilyalı rulman yerleşimi.</p>
+          </div>
+        </div>
+
+        <div class="diagram-card">
+          <div class="diagram-img-wrap">
+            <img src="assets/backlash_clearance.svg" alt="Backlash Clearance Profiles">
+          </div>
+          <div class="diagram-card-body">
+            <h4>Tolerans & Backlash Profilleri</h4>
+            <p>FDM (0.22mm), SLA (0.12mm) ve CNC metal işleme (0.05mm) için otomatik diş inceltme.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation & Getting Started Section -->
+  <section class="install-section" id="kurulum">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label" data-i18n="install_label">HEMEN BAŞLAYIN</span>
+        <h2 class="section-title" data-i18n="install_title">Hızlı Kurulum ve Çalıştırma</h2>
+        <p class="section-subtitle" data-i18n="install_subtitle">
+          İster bağımsız çevrimdışı masaüstü uygulaması olarak, ister doğrudan Fusion 360 eklentisi olarak kullanın.
+        </p>
+      </div>
+
+      <div class="install-tabs">
+        <button class="install-tab-btn active" data-target="tab-standalone">1. Bağımsız Windows Uygulaması (Önerilen)</button>
+        <button class="install-tab-btn" data-target="tab-fusion">2. Autodesk Fusion 360 Eklentisi</button>
+        <button class="install-tab-btn" data-target="tab-source">3. Python Kaynak Koddan</button>
+      </div>
+
+      <!-- Tab 1: Standalone -->
+      <div class="install-panel active" id="tab-standalone">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Son Sürümü İndirin</h4>
+              <p>GitHub Releases sayfasından en güncel <code>PlanetaryGearbox-v2.9.0-win64.zip</code> arşivini indirin.</p>
+              <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest" class="btn btn-primary btn-sm">
+                ⬇️ En Son Sürümü İndir (.zip)
+              </a>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Klasöre Çıkarın ve Çalıştırın</h4>
+              <p>Arşivi bilgisayarınızda dilediğiniz bir klasöre açın ve <code>PlanetaryGearbox.exe</code> dosyasına çift tıklayın.</p>
+              <div class="code-block">
+                <code>PlanetaryGearbox.exe</code>
+                <button class="code-copy-btn">Kopyala</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Hazır! Python veya Fusion 360 Kurulumu Gerekmez</h4>
+              <p>Uygulama OpenCascade CAD çekirdeğini ve tüm arayüz kütüphanelerini bünyesinde barındırır. Çevrimdışı olarak doğrudan STEP, STL ve 3MF üretebilirsiniz.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Fusion 360 -->
+      <div class="install-panel" id="tab-fusion">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Fusion 360 Add-Ins Klasörünü Açın</h4>
+              <p>Windows'ta <code>Win + R</code> tuşlarına basıp aşağıdaki adresi yapıştırın:</p>
+              <div class="code-block">
+                <code>%appdata%\Autodesk\Autodesk Fusion 360\API\AddIns</code>
+                <button class="code-copy-btn">Kopyala</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Depoyu Klonlayın</h4>
+              <p>Komut satırında AddIns klasörüne geçerek depoyu klonlayın:</p>
+              <div class="code-block">
+                <code>git clone https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator.git PlanetaryGearboxGenerator</code>
+                <button class="code-copy-btn">Kopyala</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Fusion 360 İçinde Çalıştırın</h4>
+              <p>Autodesk Fusion 360'ı açın. <strong>UTILITIES (Araçlar)</strong> &gt; <strong>Scripts and Add-Ins</strong> (<code>Shift + S</code>) penceresinden Add-Ins sekmesine geçin, <strong>PlanetaryGearboxGenerator</strong>'ı seçip <strong>Run</strong> butonuna tıklayın.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Python Source -->
+      <div class="install-panel" id="tab-source">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Gereksinimleri Yükleyin</h4>
+              <p>Python 3.11 - 3.14 ortamınızda OpenCascade (cadquery-ocp) ve pywebview paketlerini kurun:</p>
+              <div class="code-block">
+                <code>pip install -r requirements-standalone.txt</code>
+                <button class="code-copy-btn">Kopyala</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Masaüstü veya Tarayıcı Modunda Başlatın</h4>
+              <p>Doğrudan masaüstü penceresi veya yerel web sunucusu olarak başlatabilirsiniz:</p>
+              <div class="code-block">
+                <code>python -m standalone</code>
+                <button class="code-copy-btn">Kopyala</button>
+              </div>
+              <p style="margin-top:10px;">veya tarayıcı modunda yerel port açmak için:</p>
+              <div class="code-block">
+                <code>python -m standalone serve --port 8766</code>
+                <button class="code-copy-btn">Kopyala</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Download Section -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="cta-box">
+        <h2 data-i18n="cta_title">Gelişmiş Redüktörünüzü Şimdi Tasarlayın</h2>
+        <p data-i18n="cta_desc">
+          Tüm planet, Wolfrom ve sikloidal mekanizmaları 100% açık kaynak ve ücretsiz olarak üretin. Windows uygulamasını indirin veya depoya yıldız verin.
+        </p>
+
+        <div class="cta-actions">
+          <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest" class="btn btn-primary btn-lg">
+            ⬇️ <span data-i18n="btn_download">Windows İçin İndir (v2.9.0)</span>
+          </a>
+
+          <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator" target="_blank" rel="noopener noreferrer" class="btn btn-github btn-lg">
+            ⭐ GitHub'da Yıldız Ver
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <h4>
+            <img src="assets/logo.svg" width="24" height="24" alt="PGG">
+            Planetary Gearbox Generator
+          </h4>
+          <p data-i18n="footer_desc">
+            Autodesk Fusion 360 ve bağımsız OpenCascade CAD motoru üzerinde çalışan profesyonel planet redüktör tasarım ve analiz sistemi.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h5>Mimariler</h5>
+          <ul>
+            <li><a href="#mimariler">Standart Taşıyıcı Çıkış</a></li>
+            <li><a href="#mimariler">Dönen Çember Gövde</a></li>
+            <li><a href="#mimariler">Hız Artırıcı Çoğaltıcı</a></li>
+            <li><a href="#mimariler">Wolfrom (3K) Diferansiyel</a></li>
+            <li><a href="#mimariler">Sikloidal Redüktör</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Kaynaklar</h5>
+          <ul>
+            <li><a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator" target="_blank" rel="noopener noreferrer">GitHub Kaynak Kodu</a></li>
+            <li><a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases" target="_blank" rel="noopener noreferrer">Sürüm Notları (Releases)</a></li>
+            <li><a href="#hesaplayici">Kinematik Hesaplayıcı</a></li>
+            <li><a href="#muhendislik">ISO 6336 Standartları</a></li>
+            <li><a href="#kurulum">Kurulum Kılavuzu</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Bağlantılar & İletişim</h5>
+          <ul>
+            <li>Web: <a href="https://pgg.gryntech.net" class="footer-domain">pgg.gryntech.net</a></li>
+            <li>Geliştirici: <strong>Okan Yeşilyurt</strong></li>
+            <li>Lisans: <strong>MIT Açık Kaynak</strong></li>
+            <li>Kuruluş: <strong>GrynTech</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>
+          &copy; 2026 <strong>Planetary Gearbox Generator</strong>. Tüm hakları saklıdır.
+        </div>
+        <div>
+          Domain: <span class="footer-domain">pgg.gryntech.net</span> · Barındırma: <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted); text-decoration:none;">GitHub Repository</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/calculator.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
+

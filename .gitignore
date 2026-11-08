@@ -48,3 +48,6 @@ out/
 # Local tool settings (editor / assistant)
 .claude/
 *.log
+
+# social media material (not part of the app)
+instagram/

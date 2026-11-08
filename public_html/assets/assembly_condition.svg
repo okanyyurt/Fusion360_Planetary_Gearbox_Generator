@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 300" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #1e2430; }
+      .card { fill: #272f3d; stroke: #3b465a; stroke-width: 1.5; rx: 8; }
+      .title { fill: #4fc3f7; font-family: system-ui, sans-serif; font-size: 15px; font-weight: bold; text-anchor: middle; }
+      .desc { fill: #cfd8dc; font-family: system-ui, sans-serif; font-size: 11px; }
+      .center-line { stroke: #64b5f6; stroke-width: 1.5; stroke-dasharray: 4,3; }
+      .sun { fill: #ffa000; stroke: #ffd54f; stroke-width: 2; }
+      .planet { fill: #37474f; stroke: #78909c; stroke-width: 2; }
+      .ring { fill: none; stroke: #90a4ae; stroke-width: 3; }
+      .formula { fill: #00e676; font-family: monospace; font-size: 14px; font-weight: bold; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" class="bg" rx="10"/>
+  <text x="350" y="32" class="title">Planet Dişli Kinematik & Montaj Şartı (Assembly Condition)</text>
+
+  <!-- Left: Kinematic Assembly Layout -->
+  <g transform="translate(180, 160)">
+    <!-- Ring Gear circle -->
+    <circle cx="0" cy="0" r="100" class="ring"/>
+    <circle cx="0" cy="0" r="115" stroke="#455a64" stroke-width="2" fill="none"/>
+    
+    <!-- Sun Gear -->
+    <circle cx="0" cy="0" r="30" class="sun"/>
+    <text x="0" y="4" fill="#000" font-size="10px" font-weight="bold" text-anchor="middle">Güneş (Zs)</text>
+
+    <!-- 3 Planet Gears at 120 degrees -->
+    <!-- Planet 1 at top: 90 deg -->
+    <circle cx="0" cy="-65" r="35" class="planet"/>
+    <text x="0" y="-62" fill="#fff" font-size="9px" font-weight="bold" text-anchor="middle">Planet 1</text>
+    
+    <!-- Planet 2 at 210 deg -->
+    <circle cx="-56.3" cy="32.5" r="35" class="planet"/>
+    <text x="-56.3" y="35" fill="#fff" font-size="9px" font-weight="bold" text-anchor="middle">Planet 2</text>
+    
+    <!-- Planet 3 at 330 deg -->
+    <circle cx="56.3" cy="32.5" r="35" class="planet"/>
+    <text x="56.3" y="35" fill="#fff" font-size="9px" font-weight="bold" text-anchor="middle">Planet 3</text>
+
+    <!-- Center lines / Angles -->
+    <line x1="0" y1="0" x2="0" y2="-90" class="center-line"/>
+    <line x1="0" y1="0" x2="-80" y2="46" class="center-line"/>
+    <line x1="0" y1="0" x2="80" y2="46" class="center-line"/>
+    <text x="35" y="-15" fill="#4fc3f7" font-size="11px" font-weight="bold">120°</text>
+  </g>
+
+  <!-- Right: Mathematical Rules Explanation Card -->
+  <rect x="360" y="55" width="315" height="225" class="card"/>
+  <text x="517" y="80" fill="#ffd54f" font-weight="bold" font-size="13px" text-anchor="middle">Mühendislik Kuralları</text>
+  
+  <text x="375" y="110" fill="#4fc3f7" font-weight="bold" font-size="12px">1. Eşit Açı Montaj Şartı:</text>
+  <text x="517" y="132" class="formula">(Z_sun + Z_ring) % N = 0</text>
+  <text x="375" y="152" class="desc">Bu şart sağlanmazsa dişliler aynı anda</text>
+  <text x="375" y="167" class="desc">çember ve güneş ile kavraşamaz!</text>
+
+  <text x="375" y="192" fill="#4fc3f7" font-weight="bold" font-size="12px">2. Eş Eksenlilik (Coaxiality):</text>
+  <text x="517" y="212" class="formula">Z_ring = Z_sun + 2 × Z_planet</text>
+
+  <text x="375" y="235" fill="#4fc3f7" font-weight="bold" font-size="12px">3. Çarpışma Kontrolü (Clearance):</text>
+  <text x="375" y="252" class="desc">Planetlerin uç çapları birbirine değmemelidir.</text>
+</svg>

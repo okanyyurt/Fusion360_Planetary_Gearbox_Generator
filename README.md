@@ -5,6 +5,7 @@
 <i>Planet, Wolfrom ve sikloidal redüktörleri tasarla, hesapla, 3D yazıcıda bas — Fusion 360 içinde veya bağımsız.</i></p>
 
 <p align="center">
+  <a href="https://pgg.gryntech.net"><img src="https://img.shields.io/badge/Website-pgg.gryntech.net-0284c7.svg?logo=googlechrome&logoColor=white" alt="Website: pgg.gryntech.net"></a>
   <a href="https://www.autodesk.com/products/fusion-360"><img src="https://img.shields.io/badge/Autodesk-Fusion%20360-orange.svg?logo=autodesk" alt="Fusion 360"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.x-blue.svg?logo=python" alt="Python"></a>
   <a href="https://dev.opencascade.org/"><img src="https://img.shields.io/badge/CAD-OpenCascade-5b8def.svg" alt="OpenCascade"></a>
@@ -32,7 +33,7 @@
 </table>
 
 <p align="center">
-  <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest"><b>⬇️ Download (Windows, offline)</b></a> · <a href="#-english">🇬🇧 English</a> · <a href="#-türkçe">🇹🇷 Türkçe</a> · <a href="CHANGELOG.md">📝 Changelog</a>
+  <a href="https://pgg.gryntech.net"><b>🌐 Web Sitesi / Website</b></a> · <a href="https://github.com/okanyyurt/Fusion360_Planetary_Gearbox_Generator/releases/latest"><b>⬇️ Download (Windows, offline)</b></a> · <a href="#-english">🇬🇧 English</a> · <a href="#-türkçe">🇹🇷 Türkçe</a> · <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
 ---
