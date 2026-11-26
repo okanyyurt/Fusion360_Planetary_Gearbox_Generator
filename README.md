@@ -394,3 +394,13 @@ python test_generator.py             # kinematik ve profil geometrisi (eski tak�
 ## 📄 Lisans / License
 Bu proje [MIT Lisansı](LICENSE) altında sunulmaktadır.
 This project is licensed under the terms of the [MIT License](LICENSE).
+
+## Packaging a Fusion add-in release
+
+From the repository root, check out the release commit and run this command with Git (Bash or Git Bash). It packages the tracked runtime files under the folder name Fusion expects.
+
+```sh
+git archive --format=zip --prefix=PlanetaryGearboxGenerator/ --output=PlanetaryGearboxGenerator-windows-x64.zip HEAD -- PlanetaryGearboxGenerator.manifest PlanetaryGearboxGenerator.py fusion_kinematics.py core occ_cad resources standalone ui Baslat_Standalone.bat requirements-standalone.txt LICENSE
+```
+
+Upload `PlanetaryGearboxGenerator-windows-x64.zip` as an asset of a stable GitHub Release. Use a numeric tag such as `v2.9.0` matching the version in `PlanetaryGearboxGenerator.manifest`.
